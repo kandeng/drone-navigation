@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Stick -->
+  <line x1="12" y1="10" x2="12" y2="17"></line>
+  <!-- Stick ball -->
+  <circle cx="12" cy="8" r="3"></circle>
+  <!-- Base -->
+  <path d="M6 18C6 17.2044 6.31607 16.4413 6.87868 15.8787C7.44129 15.3161 8.20435 15 9 15H15C15.7956 15 16.5587 15.3161 17.1213 15.8787C17.6839 16.4413 18 17.2044 18 18V21H6V18Z"></path>
+</svg>

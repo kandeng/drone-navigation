@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 224 224">
+  <g stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="currentColor">
+    <!-- Up arrow -->
+    <line x1="112" y1="68" x2="112" y2="28" />
+    <polygon points="112,20 105,34 119,34" />
+    <!-- Down arrow -->
+    <line x1="112" y1="156" x2="112" y2="196" />
+    <polygon points="112,204 105,190 119,190" />
+    <!-- Left arrow -->
+    <line x1="156" y1="112" x2="196" y2="112" />
+    <polygon points="204,112 190,105 190,119" />
+    <!-- Right arrow -->
+    <line x1="68" y1="112" x2="28" y2="112" />
+    <polygon points="20,112 34,105 34,119" />
+  </g>
+</svg>

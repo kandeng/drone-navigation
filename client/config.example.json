@@ -1,0 +1,4 @@
+{
+  "googleApiKey": "YOUR_GOOGLE_MAPS_API_KEY",
+  "cesiumIonToken": "YOUR_CESIUM_ION_ACCESS_TOKEN"
+}
