@@ -3,8 +3,13 @@
 // via Vite's import.meta.glob. Add or update keys here to change the icons
 // used across the application without touching components.
 
-const iconModules = import.meta.glob('../../../asset/*.svg', {
+const svgModules = import.meta.glob('../../../asset/*.svg', {
   query: '?raw',
+  import: 'default',
+  eager: true,
+});
+
+const pngModules = import.meta.glob('../../../asset/*.png', {
   import: 'default',
   eager: true,
 });
@@ -13,6 +18,7 @@ export const IconMap = {
   // Sidebar menu icons
   MENU_CONTROL_STICK: '../../../asset/control-stick.svg',
   MENU_LOCATION: '../../../asset/location.svg',
+  MENU_3D_VIEW: '../../../asset/drone.svg',
   MENU_SETTINGS: '../../../asset/settings.svg',
   MENU_CAMERA: '../../../asset/camera.svg',
   MENU_CHAT: '../../../asset/chat.svg',
@@ -43,7 +49,12 @@ export const IconMap = {
  */
 export function getIconSvg(key) {
   const path = IconMap[key];
-  return path && iconModules[path] ? iconModules[path] : '';
+  return path && svgModules[path] ? svgModules[path] : '';
+}
+
+export function getIconImageUrl(key) {
+  const path = IconMap[key];
+  return path && pngModules[path] ? pngModules[path] : '';
 }
 
 /**

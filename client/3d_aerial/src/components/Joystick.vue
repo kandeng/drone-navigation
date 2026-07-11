@@ -47,6 +47,11 @@ const props = defineProps({
       pitch: 'CAMERA_PITCH',
     }),
   },
+  /** When true, the joystick is disabled and ignores all input. */
+  disabled: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(['move', 'stop', 'modeChange']);
@@ -175,6 +180,7 @@ function applyInput(dx, dy) {
 }
 
 function cycleMode() {
+  if (props.disabled) return;
   const modes = cyclingModes.value;
   const idx = modes.indexOf(cyclingMode.value);
   const next = modes[(idx + 1) % modes.length];
@@ -187,6 +193,7 @@ function cycleMode() {
 }
 
 function handleStart(e) {
+  if (props.disabled) return;
   // Ignore synthetic mouse events after touch.
   if (e.pointerType === 'touch') {
     lastTouchTime.value = Date.now();
@@ -210,6 +217,7 @@ function handleStart(e) {
 }
 
 function handleMove(e) {
+  if (props.disabled) return;
   if (e.pointerType === 'mouse' && Date.now() - lastTouchTime.value < 500) return;
   e.preventDefault();
 
@@ -234,6 +242,7 @@ function handleMove(e) {
 }
 
 function handleEnd(e) {
+  if (props.disabled) return;
   if (pressedCenter.value) {
     pressedCenter.value = false;
     cycleMode();
@@ -257,6 +266,7 @@ function handleEnd(e) {
   <div
     ref="trackRef"
     class="joystick-track"
+    :class="{ 'joystick-track--disabled': disabled }"
     :style="trackStyle"
     @pointerdown="handleStart"
     @pointermove="handleMove"
@@ -327,6 +337,12 @@ function handleEnd(e) {
   user-select: none;
   cursor: pointer;
   flex-shrink: 0;
+}
+
+.joystick-track--disabled {
+  opacity: 0.35;
+  pointer-events: none;
+  cursor: not-allowed;
 }
 
 .glyph {

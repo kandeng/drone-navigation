@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import { getIconSvg } from '@/config/IconConfig.js';
+import { getIconSvg, getIconImageUrl } from '@/config/IconConfig.js';
 
 const props = defineProps({
   name: {
@@ -26,6 +26,10 @@ const svgMarkup = computed(() => {
     .replace(/height="[^"]*"/gi, '');
 });
 
+const imageUrl = computed(() => getIconImageUrl(props.name));
+
+const isImage = computed(() => !!imageUrl.value);
+
 const style = computed(() => ({
   width: typeof props.size === 'number' ? `${props.size}px` : props.size,
   height: typeof props.size === 'number' ? `${props.size}px` : props.size,
@@ -37,8 +41,15 @@ const style = computed(() => ({
   <span
     class="configurable-icon"
     :style="style"
-    v-html="svgMarkup"
-  />
+  >
+    <img
+      v-if="isImage"
+      :src="imageUrl"
+      :alt="name"
+      class="configurable-icon__img"
+    />
+    <span v-else v-html="svgMarkup"></span>
+  </span>
 </template>
 
 <style scoped>
@@ -53,5 +64,11 @@ const style = computed(() => ({
 .configurable-icon :deep(svg) {
   width: 100%;
   height: 100%;
+}
+
+.configurable-icon__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 </style>

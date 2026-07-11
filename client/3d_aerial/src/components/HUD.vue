@@ -1,0 +1,108 @@
+<script setup>
+import { useDrone } from '@/composables/useDrone.js';
+
+const { drone, gimbal } = useDrone();
+
+defineProps({
+  flight: {
+    type: Object,
+    default: () => ({ mode: '-', vx: 0, vy: 0, yaw: 0, vz: 0 }),
+  },
+  camera: {
+    type: Object,
+    default: () => ({ mode: '-', yaw: 0, pitch: 0, roll: 0 }),
+  },
+});
+</script>
+
+<template>
+  <div class="telemetry">
+    <div class="telemetry-row">
+      <span class="telemetry-key">Flight</span>
+      <span class="telemetry-value">
+        Mode: {{ flight.mode }}
+        <template v-if="flight.mode === 'M'">| vx: {{ flight.vx.toFixed(2) }}, vy: {{ flight.vy.toFixed(2) }}</template>
+        <template v-if="flight.mode === 'R'">| yaw: {{ flight.yaw.toFixed(2) }}</template>
+        <template v-if="flight.mode === 'H'">| vz: {{ flight.vz.toFixed(2) }}</template>
+      </span>
+    </div>
+    <div class="telemetry-row">
+      <span class="telemetry-key">Camera</span>
+      <span class="telemetry-value">
+        Mode: {{ camera.mode }}
+        <template v-if="camera.mode === 'Z'">| yaw: {{ camera.yaw.toFixed(2) }}</template>
+        <template v-if="camera.mode === 'Y'">| pitch: {{ camera.pitch.toFixed(2) }}</template>
+        <template v-if="camera.mode === 'X'">| roll: {{ camera.roll.toFixed(2) }}</template>
+      </span>
+    </div>
+    <div class="telemetry-row">
+      <span class="telemetry-key">Position</span>
+      <span class="telemetry-value">
+        lat: {{ drone.lat.toFixed(4) }} | lon: {{ drone.lon.toFixed(4) }} | alt: {{ drone.alt.toFixed(4) }}
+      </span>
+    </div>
+    <div class="telemetry-row">
+      <span class="telemetry-key">Direction</span>
+      <span class="telemetry-value">
+        Z (yaw): {{ drone.heading.toFixed(1) }} | Y (pitch): {{ (0).toFixed(1) }} | X (roll): {{ (0).toFixed(1) }}
+      </span>
+    </div>
+    <div class="telemetry-row">
+      <span class="telemetry-key">Gimbal</span>
+      <span class="telemetry-value">
+        Z (yaw): {{ gimbal.yaw.toFixed(1) }} | Y (pitch): {{ gimbal.pitch.toFixed(1) }} | X (roll): {{ gimbal.roll.toFixed(1) }}
+      </span>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.telemetry {
+  position: absolute;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 20px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  color: #4ade80;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.telemetry-row {
+  display: flex;
+  gap: 16px;
+  white-space: nowrap;
+}
+
+.telemetry-key {
+  width: 72px;
+  flex-shrink: 0;
+  font-weight: 700;
+  color: #86efac;
+}
+
+.telemetry-value {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .telemetry {
+    font-size: 0.7rem;
+    padding: 10px 14px;
+    bottom: 40px;
+  }
+
+  .telemetry-key {
+    width: 60px;
+  }
+}
+</style>

@@ -1,9 +1,14 @@
 <script setup>
-import { reactive, ref, onMounted, onUnmounted } from 'vue';
+import { reactive, ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import ConfigurableIcon from '@/components/ConfigurableIcon.vue';
 import Joystick from '@/components/Joystick.vue';
 import CollisionWarning from '@/components/CollisionWarning.vue';
+import StreetViewPane from '@/components/StreetViewPane.vue';
+import HUD from '@/components/HUD.vue';
+import { useAltitudeGate } from '@/composables/useAltitudeGate.js';
+import { useDrone } from '@/composables/useDrone.js';
+import { MapView } from '../../../2d_map/index.js';
 
 const router = useRouter();
 
@@ -11,15 +16,19 @@ const flight = reactive({ mode: 'M', vx: 0, vy: 0, yaw: 0, vz: 0 });
 const camera = reactive({ mode: 'Z', yaw: 0, pitch: 0, roll: 0 });
 const showFlight = ref(true);
 const showCamera = ref(true);
-const isLanded = ref(true);
+const show2DMap = ref(false);
 
 // Active joystick sub-modes, updated immediately when the center knob is pressed.
 const activeFlightMode = ref('M');
 const activeCameraMode = ref('Z');
 
 // Drone geographic state and gimbal angles, synced to the Cesium camera.
-const drone = reactive({ lat: 37.7937, lon: -122.3965, alt: 300.0, heading: 0.0 });
-const gimbal = reactive({ yaw: 0.0, pitch: -20.0, roll: 0.0 });
+const { drone, gimbal } = useDrone();
+
+// Altitude gate handles surface-relative altitude, ground/airborne state,
+// and automatic takeoff/landing sequences.
+const altitudeGate = useAltitudeGate(drone);
+altitudeGate.isOnGround.value = drone.alt <= 15;
 
 // Current joystick command values, applied each animation frame.
 const flightCmd = reactive({ mode: 'M', vx: 0, vy: 0, yaw: 0, vz: 0 });
@@ -31,6 +40,16 @@ const collisionSurfaceNormal = ref(null);
 const MIN_SAFETY_BUFFER = 2.0; // meters
 const LOOK_AHEAD_TIME = 2.0; // seconds
 
+const cesiumContainer = ref(null);
+
+const isTakeoffLanding = computed(() => altitudeGate.isTransitioning.value);
+const showStreetView = computed(() => altitudeGate.isOnGround.value);
+const takeoffLandingLabel = computed(() => {
+  if (altitudeGate.isAutoTakingOff.value) return 'Taking Off...';
+  if (altitudeGate.isAutoLanding.value) return 'Landing...';
+  return altitudeGate.isOnGround.value ? 'Takeoff' : 'Landing';
+});
+
 function toggleFlight() {
   showFlight.value = !showFlight.value;
 }
@@ -40,8 +59,27 @@ function toggleCamera() {
 }
 
 function toggleTakeoffLanding() {
-  isLanded.value = !isLanded.value;
+  const viewer = window.cesiumViewer;
+  if (altitudeGate.isOnGround.value) {
+    altitudeGate.startTakeoff(viewer);
+  } else {
+    altitudeGate.startLanding(viewer);
+  }
 }
+
+// Toggle Cesium rendering assets based on whether the drone is on the ground.
+// When Street View is active we hide the base globe; the 3D tileset is kept
+// rendered but visually concealed via the Cesium container opacity so that
+// surface altitude sampling continues to work for rooftop takeoff/landing.
+watch(showStreetView, (onGround) => {
+  const viewer = window.cesiumViewer;
+  if (viewer) {
+    viewer.scene.globe.show = !onGround;
+  }
+  if (cesiumContainer.value) {
+    cesiumContainer.value.classList.toggle('cesium-hidden', onGround);
+  }
+});
 
 function onFlightModeChange(mode) {
   activeFlightMode.value = mode;
@@ -120,6 +158,10 @@ function onCameraStop() {
 
 function goToChat() {
   router.push('/chat');
+}
+
+function toggle2DMap() {
+  show2DMap.value = !show2DMap.value;
 }
 
 // Keyboard control: WASD for flight, arrow keys for gimbal.
@@ -217,6 +259,75 @@ function getFlightCommandSpeed() {
 }
 
 /**
+ * Compute the desired ENU displacement (meters) from the current flight command.
+ * Returns a Cartesian3 or null if no positional movement is requested.
+ */
+function computeDesiredEnuMove(dt) {
+  if (!showFlight.value) return null;
+
+  if (activeFlightMode.value === 'M') {
+    const headingRad = Cesium.Math.toRadians(drone.heading);
+    const forwardDeg = flightCmd.vy * MOVEMENT_SPEED * dt;
+    const rightDeg = flightCmd.vx * MOVEMENT_SPEED * dt;
+    const latRad = (drone.lat * Math.PI) / 180;
+    const metersPerDegLat = 111320;
+    const metersPerDegLon = metersPerDegLat * Math.cos(latRad);
+
+    // Body-relative forward/right converted to ENU meters.
+    const dNorthM = forwardDeg * metersPerDegLat;
+    const dEastM = rightDeg * metersPerDegLon;
+
+    return new Cesium.Cartesian3(
+      dEastM * Math.cos(headingRad) + dNorthM * Math.sin(headingRad),
+      dNorthM * Math.cos(headingRad) - dEastM * Math.sin(headingRad),
+      0
+    );
+  }
+
+  if (activeFlightMode.value === 'H' && !altitudeGate.isOnGround.value) {
+    return new Cesium.Cartesian3(0, 0, flightCmd.vz * ALTITUDE_SPEED * dt);
+  }
+
+  return null;
+}
+
+/**
+ * Apply an ENU displacement (meters) to the drone's geographic state.
+ */
+function applyEnuMove(enuMove) {
+  if (!enuMove) return;
+  const latRad = (drone.lat * Math.PI) / 180;
+  const metersPerDegLat = 111320;
+  const metersPerDegLon = metersPerDegLat * Math.cos(latRad);
+
+  drone.lat += enuMove.y / metersPerDegLat;
+  drone.lon += enuMove.x / metersPerDegLon;
+  drone.alt += enuMove.z;
+}
+
+/**
+ * Remove the component of an ENU displacement that points into a surface.
+ * The collision normal points away from the mesh toward the drone.
+ */
+function projectEnuMove(enuMove, collision) {
+  const position = Cesium.Cartesian3.fromDegrees(drone.lon, drone.lat, drone.alt);
+  const enuTransform = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+  const invTransform = Cesium.Matrix4.inverse(enuTransform, new Cesium.Matrix4());
+  const enuNormal = Cesium.Matrix4.multiplyByPointAsVector(
+    invTransform,
+    collision.normal,
+    new Cesium.Cartesian3()
+  );
+  Cesium.Cartesian3.normalize(enuNormal, enuNormal);
+
+  const dot = Cesium.Cartesian3.dot(enuMove, enuNormal);
+  if (dot >= 0) return enuMove; // Already moving away or parallel.
+
+  const normalComponent = Cesium.Cartesian3.multiplyByScalar(enuNormal, dot, new Cesium.Cartesian3());
+  return Cesium.Cartesian3.subtract(enuMove, normalComponent, new Cesium.Cartesian3());
+}
+
+/**
  * Build the drone's intended world-space direction vector (ECEF) from the
  * current flight command. Returns a normalized Cartesian3 or null.
  */
@@ -229,8 +340,13 @@ function getFlightCommandDirection() {
 
   if (activeFlightMode.value === 'M') {
     const mag = Math.hypot(flightCmd.vx, flightCmd.vy) || 1;
-    // vx is east, vy is north in our local command convention.
-    const enuDir = new Cesium.Cartesian3(flightCmd.vx / mag, flightCmd.vy / mag, 0);
+    // M mode forward follows the drone body heading, independent of gimbal.
+    const headingRad = Cesium.Math.toRadians(drone.heading);
+    const enuDir = new Cesium.Cartesian3(
+      (flightCmd.vy * Math.sin(headingRad) + flightCmd.vx * Math.cos(headingRad)) / mag,
+      (flightCmd.vy * Math.cos(headingRad) - flightCmd.vx * Math.sin(headingRad)) / mag,
+      0
+    );
     const worldDir = Cesium.Matrix4.multiplyByPointAsVector(
       enuTransform,
       enuDir,
@@ -263,7 +379,7 @@ function checkCollisionAhead() {
   if (!viewer || !tileset || !showFlight.value) return null;
 
   const speed = getFlightCommandSpeed();
-  if (speed <= 0 && !isCollisionFrozen.value) return null;
+  if (speed <= 0) return null;
 
   const direction = getFlightCommandDirection();
   if (!direction) return null;
@@ -297,44 +413,53 @@ function checkCollisionAhead() {
 
 function updateDroneState() {
   const dt = 1 / 60;
+  const viewer = window.cesiumViewer;
 
-  // Predictive collision avoidance: single forward raycast against the tileset.
-  const collision = checkCollisionAhead();
-  if (collision) {
-    const inputDir = getFlightCommandDirection();
-    // The surface normal points away from the mesh toward the drone. If the
-    // input direction also points away (dot product positive), allow retreat.
-    const movingAway = inputDir && Cesium.Cartesian3.dot(inputDir, collision.normal) > 0;
+  // Update surface-relative altitude and ground/airborne state.
+  altitudeGate.update(viewer);
 
-    if (!movingAway) {
-      isCollisionFrozen.value = true;
-      collisionSurfaceNormal.value = collision.normal;
-
-      // Halt all movement commands and telemetry values.
-      flightCmd.vx = 0;
-      flightCmd.vy = 0;
-      flightCmd.vz = 0;
-      flightCmd.yaw = 0;
-      flight.vx = 0;
-      flight.vy = 0;
-      flight.vz = 0;
-      flight.yaw = 0;
-      return;
-    }
+  // Automatic takeoff/landing: disable all user control and move vertically.
+  if (isTakeoffLanding.value) {
+    altitudeGate.stepAuto(dt, viewer);
+    onFlightStop();
+    onCameraStop();
+    console.log('[AutoFlight]', altitudeGate.isAutoTakingOff.value ? 'TAKEOFF' : 'LANDING',
+      'pos:', drone.lat.toFixed(6), drone.lon.toFixed(6), drone.alt.toFixed(2));
+    return;
   }
 
-  // Safe to move: clear any previous freeze state.
-  isCollisionFrozen.value = false;
-  collisionSurfaceNormal.value = null;
+  // Predictive collision avoidance: project movement onto the safe side of any
+  // surface that is within the dynamic safety buffer. Movement away from or
+  // along the surface is still allowed.
+  let enuMove = computeDesiredEnuMove(dt);
+  const collision = checkCollisionAhead();
+  if (collision && enuMove) {
+    enuMove = projectEnuMove(enuMove, collision);
+    isCollisionFrozen.value = true;
+    collisionSurfaceNormal.value = collision.normal;
+  } else {
+    isCollisionFrozen.value = false;
+    collisionSurfaceNormal.value = null;
+  }
+
+  // Ground mode: keep the drone on the surface and disable altitude control.
+  if (altitudeGate.isOnGround.value) {
+    altitudeGate.snapToGround();
+
+    // Force the flight joystick out of H mode when landed.
+    if (activeFlightMode.value === 'H') {
+      activeFlightMode.value = 'M';
+      flight.mode = 'M';
+      flightCmd.mode = 'M';
+    }
+
+    // Drop any altitude command that may still be buffered.
+    flightCmd.vz = 0;
+  }
 
   if (showFlight.value) {
     if (activeFlightMode.value === 'M') {
-      const headingRad = (drone.heading * Math.PI) / 180;
-      const forward = flightCmd.vy * MOVEMENT_SPEED * dt;
-      const right = flightCmd.vx * MOVEMENT_SPEED * dt;
-      const latRad = (drone.lat * Math.PI) / 180;
-      drone.lat += forward * Math.cos(headingRad) + right * Math.sin(headingRad);
-      drone.lon += (-forward * Math.sin(headingRad) + right * Math.cos(headingRad)) / Math.cos(latRad);
+      applyEnuMove(enuMove);
       flight.vx = flightCmd.vx;
       flight.vy = flightCmd.vy;
       flight.yaw = 0;
@@ -345,8 +470,8 @@ function updateDroneState() {
       flight.vy = 0;
       flight.yaw = flightCmd.yaw;
       flight.vz = 0;
-    } else if (activeFlightMode.value === 'H') {
-      drone.alt += flightCmd.vz * ALTITUDE_SPEED * dt;
+    } else if (activeFlightMode.value === 'H' && !altitudeGate.isOnGround.value) {
+      applyEnuMove(enuMove);
       flight.vx = 0;
       flight.vy = 0;
       flight.yaw = 0;
@@ -389,6 +514,18 @@ function syncCesiumCamera() {
   }
 }
 
+/**
+ * Compute the Street View camera parameters from the drone/gimbal state.
+ * Street View heading is the drone heading plus gimbal yaw, and pitch is the
+ * gimbal pitch. The relative altitude above the surface drives zoom.
+ */
+function getStreetViewPov() {
+  const headingRad = ((drone.heading + gimbal.yaw) * Math.PI) / 180;
+  const pitchRad = (gimbal.pitch * Math.PI) / 180;
+  const relativeAlt = Math.max(0, drone.alt - altitudeGate.surfaceAlt.value);
+  return { headingRad, pitchRad, relativeAlt };
+}
+
 function loop() {
   updateDroneState();
   syncCesiumCamera();
@@ -396,6 +533,7 @@ function loop() {
 }
 
 onMounted(() => {
+  cesiumContainer.value = document.getElementById('cesiumContainer');
   window.addEventListener('keydown', handleKeyDown);
   window.addEventListener('keyup', handleKeyUp);
   syncCesiumCamera();
@@ -411,6 +549,26 @@ onUnmounted(() => {
 
 <template>
   <div class="dashboard">
+    <!-- Street View layer (cross-fades with Cesium) -->
+    <StreetViewPane
+      class="dashboard-street-view"
+      :lat="drone.lat"
+      :lon="drone.lon"
+      :heading="getStreetViewPov().headingRad"
+      :pitch="getStreetViewPov().pitchRad"
+      :altitude="getStreetViewPov().relativeAlt"
+      :visible="showStreetView"
+    />
+
+    <!-- 2D Google Map overlay -->
+    <MapView
+      v-if="show2DMap"
+      class="dashboard-2d-map"
+      :lat="drone.lat"
+      :lon="drone.lon"
+      :heading="drone.heading"
+    />
+
     <!-- Top-center collision warning overlay -->
     <CollisionWarning :visible="isCollisionFrozen" />
 
@@ -425,22 +583,30 @@ onUnmounted(() => {
         >
           <ConfigurableIcon name="MENU_CONTROL_STICK" :size="32" />
         </button>
-        <button class="menu-btn" title="2D Map">
-          <ConfigurableIcon name="MENU_LOCATION" :size="32" />
+        <button
+          class="menu-btn"
+          :title="show2DMap ? '3D View' : '2D Map'"
+          @click="toggle2DMap"
+        >
+          <ConfigurableIcon :name="show2DMap ? 'MENU_3D_VIEW' : 'MENU_LOCATION'" :size="32" />
         </button>
         <button
           class="menu-btn"
-          :class="{ 'menu-btn--active': !isLanded }"
-          :title="isLanded ? 'Takeoff' : 'Landing'"
+          :class="{ 'menu-btn--active': altitudeGate.isAutoTakingOff.value }"
+          :title="takeoffLandingLabel"
+          :disabled="isTakeoffLanding"
           @click="toggleTakeoffLanding"
         >
-          <ConfigurableIcon :name="isLanded ? 'MENU_TAKEOFF' : 'MENU_LANDING'" :size="32" />
+          <ConfigurableIcon :name="altitudeGate.isOnGround.value ? 'MENU_TAKEOFF' : 'MENU_LANDING'" :size="32" />
         </button>
       </div>
     </aside>
 
     <!-- Center control area -->
-    <main class="control-area">
+    <main
+      class="control-area"
+      :class="{ 'control-area--hidden': show2DMap }"
+    >
       <div class="joystick-pair">
         <div
           class="joystick-group"
@@ -451,6 +617,7 @@ onUnmounted(() => {
             :size="224"
             :sensitivity="3"
             enable-mode-cycle
+            :disabled="isTakeoffLanding"
             @move="onFlightMove"
             @stop="onFlightStop"
             @modeChange="onFlightModeChange"
@@ -467,6 +634,7 @@ onUnmounted(() => {
             :size="224"
             :sensitivity="1"
             enable-mode-cycle
+            :disabled="isTakeoffLanding"
             @move="onCameraMove"
             @stop="onCameraStop"
             @modeChange="onCameraModeChange"
@@ -476,38 +644,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Live telemetry readout -->
-      <div class="telemetry">
-        <div class="telemetry-row">
-          <span class="telemetry-key">Flight</span>
-          <span class="telemetry-value">
-            Mode: {{ flight.mode }}
-            <template v-if="flight.mode === 'M'">| vx: {{ flight.vx.toFixed(2) }}, vy: {{ flight.vy.toFixed(2) }}</template>
-            <template v-if="flight.mode === 'R'">| yaw: {{ flight.yaw.toFixed(2) }}</template>
-            <template v-if="flight.mode === 'H'">| vz: {{ flight.vz.toFixed(2) }}</template>
-          </span>
-        </div>
-        <div class="telemetry-row">
-          <span class="telemetry-key">Camera</span>
-          <span class="telemetry-value">
-            Mode: {{ camera.mode }}
-            <template v-if="camera.mode === 'Z'">| yaw: {{ camera.yaw.toFixed(2) }}</template>
-            <template v-if="camera.mode === 'Y'">| pitch: {{ camera.pitch.toFixed(2) }}</template>
-            <template v-if="camera.mode === 'X'">| roll: {{ camera.roll.toFixed(2) }}</template>
-          </span>
-        </div>
-        <div class="telemetry-row">
-          <span class="telemetry-key">Drone</span>
-          <span class="telemetry-value">
-            lat: {{ drone.lat.toFixed(4) }} | lon: {{ drone.lon.toFixed(4) }} | alt: {{ drone.alt.toFixed(4) }}
-          </span>
-        </div>
-        <div class="telemetry-row">
-          <span class="telemetry-key">Gimbal</span>
-          <span class="telemetry-value">
-            Z (yaw): {{ gimbal.yaw.toFixed(1) }} | Y (pitch): {{ gimbal.pitch.toFixed(1) }} | X (roll): {{ gimbal.roll.toFixed(1) }}
-          </span>
-        </div>
-      </div>
+      <HUD :flight="flight" :camera="camera" />
     </main>
 
     <!-- Right sidebar menu -->
@@ -545,7 +682,25 @@ onUnmounted(() => {
   pointer-events: none; /* let clicks pass through empty areas to Cesium */
 }
 
-.dashboard > * {
+.dashboard > *:not(.dashboard-street-view) {
+  pointer-events: auto;
+}
+
+.dashboard-street-view {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.dashboard-street-view.street-view-pane--visible {
+  pointer-events: auto;
+}
+
+.dashboard-2d-map {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
   pointer-events: auto;
 }
 
@@ -555,6 +710,7 @@ onUnmounted(() => {
   justify-content: center;
   width: 72px;
   padding: 8px 0;
+  z-index: 10;
 }
 
 .sidebar-left {
@@ -599,6 +755,16 @@ onUnmounted(() => {
   opacity: 0.6;
 }
 
+.menu-btn--warning {
+  background: rgba(220, 20, 60, 0.88);
+  border-color: #b91c1c;
+  color: #ffffff;
+}
+
+.menu-btn--warning:hover {
+  opacity: 0.85;
+}
+
 .menu-btn:active {
   transform: scale(0.96);
 }
@@ -611,6 +777,11 @@ onUnmounted(() => {
   justify-content: center;
   min-width: 0;
   pointer-events: none; /* only the joysticks/telemetry should capture input */
+}
+
+.control-area--hidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .joystick-pair {
@@ -643,39 +814,6 @@ onUnmounted(() => {
   color: rgba(75, 85, 99, 0.8);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-
-.telemetry {
-  position: absolute;
-  bottom: 64px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 12px 20px;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(4px);
-  color: #4ade80;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.8rem;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  pointer-events: auto;
-  box-sizing: border-box;
-  min-width: 520px;
-  width: max-content;
-  max-width: 100%;
-}
-
-.telemetry-row {
-  display: flex;
-  gap: 16px;
-  white-space: nowrap;
-}
-
-.telemetry-key {
-  min-width: 56px;
-  color: #86efac;
 }
 
 @media (max-width: 768px) {

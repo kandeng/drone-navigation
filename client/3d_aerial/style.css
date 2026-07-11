@@ -16,6 +16,11 @@ html, body {
   padding: 0;
   overflow: hidden;
   z-index: 0;
+  transition: opacity 0.4s ease-in-out;
+}
+
+#cesiumContainer.cesium-hidden {
+  opacity: 0;
 }
 
 #app {
