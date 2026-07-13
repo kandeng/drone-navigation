@@ -10,7 +10,7 @@ import { useAppSettings } from '@shared-composables/useAppSettings.js';
 const { t, locale } = useI18n();
 const { leftItems, registerLeft, clear } = useDockRegistry();
 const { pages, registerPage, unregisterPage } = usePageRegistry();
-const { settings, setFontFamily, setFontSize } = useAppSettings();
+const { settings, setFontFamily, setFontSize, setTakeoffAltitude, setSafetyBuffer, setDefaultLat, setDefaultLon, setDefaultAlt } = useAppSettings();
 
 /* ─── Left-column width drag ─── */
 const LEFT_MIN = 180;
@@ -47,6 +47,7 @@ const selectedId = ref('language');
 const SETTINGS_LIST = [
   { id: 'language', labelKey: 'aerialview.settings_language' },
   { id: 'font', labelKey: 'aerialview.settings_font' },
+  { id: 'flight', labelKey: 'aerialview.settings_flight' },
 ];
 
 /* ─── Font options ─── */
@@ -194,6 +195,76 @@ onUnmounted(() => {
               </select>
             </div>
           </div>
+
+          <!-- Flight -->
+          <div v-if="selectedId === 'flight'" class="settings-section">
+            <h2 class="settings-section__title">{{ t('aerialview.settings_flight') }}</h2>
+
+            <div class="settings-row">
+              <label class="settings-row__label">{{ t('aerialview.settings_takeoff_altitude') }}</label>
+              <input
+                type="number"
+                class="settings-input settings-input--narrow"
+                :value="settings.takeoffAltitude"
+                min="20"
+                max="10000"
+                step="10"
+                @change="setTakeoffAltitude($event.target.value)"
+              />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-row__label">{{ t('aerialview.settings_safety_buffer') }}</label>
+              <input
+                type="number"
+                class="settings-input settings-input--narrow"
+                :value="settings.safetyBuffer"
+                min="2"
+                max="100"
+                step="1"
+                @change="setSafetyBuffer($event.target.value)"
+              />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-row__label">{{ t('aerialview.settings_default_lat') }}</label>
+              <input
+                type="number"
+                class="settings-input settings-input--narrow"
+                :value="settings.defaultLat"
+                min="-90"
+                max="90"
+                step="0.0001"
+                @change="setDefaultLat($event.target.value)"
+              />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-row__label">{{ t('aerialview.settings_default_lon') }}</label>
+              <input
+                type="number"
+                class="settings-input settings-input--narrow"
+                :value="settings.defaultLon"
+                min="-180"
+                max="180"
+                step="0.0001"
+                @change="setDefaultLon($event.target.value)"
+              />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-row__label">{{ t('aerialview.settings_default_alt') }}</label>
+              <input
+                type="number"
+                class="settings-input settings-input--narrow"
+                :value="settings.defaultAlt"
+                min="0"
+                max="10000"
+                step="10"
+                @change="setDefaultAlt($event.target.value)"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </template>
@@ -208,6 +279,7 @@ onUnmounted(() => {
   pointer-events: auto;
   background: #ffffff;
   user-select: none;
+  z-index: 6;
 }
 
 /* ─── Left sidebar ─── */
@@ -307,7 +379,27 @@ onUnmounted(() => {
   border-color: #007aff;
 }
 
-.settings-select:focus {
+.settings-input {
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid #d2d2d7;
+  background: #ffffff;
+  color: #1d1d1f;
+  font-size: 0.875rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settings-input--narrow {
+  width: 120px;
+}
+
+.settings-input:hover {
+  border-color: #007aff;
+}
+
+.settings-input:focus {
   border-color: #007aff;
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
 }

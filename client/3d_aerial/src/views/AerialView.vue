@@ -6,7 +6,7 @@ import ViewComposer from '@shared/_ViewComposer.vue';
 import CollisionWarning from '@/components/CollisionWarning.vue';
 import StreetViewPane from '@/components/StreetViewPane.vue';
 import { useDrone } from '@shared-composables/useDrone.js';
-import { useAltitudeGate } from '@/composables/useAltitudeGate.js';
+import { useAltitudeGate, PHASES, DESCEND_THRESHOLD, ASCEND_THRESHOLD } from '@/composables/useAltitudeGate.js';
 import { useFlightCommands } from '@shared-composables/useFlightCommands.js';
 import { useCameraCommands } from '@shared-composables/useCameraCommands.js';
 import { useFlightPhysics } from '@shared-composables/useFlightPhysics.js';
@@ -21,9 +21,9 @@ const router = useRouter();
 
 const { drone, gimbal } = useDrone();
 const altitudeGate = useAltitudeGate(drone);
-altitudeGate.isOnGround.value = drone.alt <= 15;
 
-const isLowAltitude = computed(() => (drone.alt - altitudeGate.surfaceAlt.value) < 5);
+const isLowAltitude = computed(() => (drone.alt - altitudeGate.surfaceAlt.value) < 10);
+const isHighAltitude = computed(() => (drone.alt - altitudeGate.surfaceAlt.value) > 100);
 
 const {
   flight,
@@ -62,12 +62,42 @@ const MIN_SAFETY_BUFFER = 2.0; // meters
 const LOOK_AHEAD_TIME = 2.0; // seconds
 
 const cesiumContainer = ref(null);
+const streetViewReady = ref(false);
+const lockedMessage = ref('');
+let lockedMessageTimer = null;
 
 const isTakeoffLanding = computed(() => altitudeGate.isTransitioning.value);
-const showStreetView = computed(() => altitudeGate.isOnGround.value);
+const isPausedByCollision = computed(() => altitudeGate.isPausedByCollision.value);
+const isAutoActive = computed(() => isTakeoffLanding.value && !isPausedByCollision.value);
+const collisionPausedMessage = computed(() => {
+  if (!isPausedByCollision.value) return '';
+  const p = altitudeGate.flightPhase.value;
+  if (p === PHASES.ASCENDING) return t('aerialview.obstacle_above');
+  if (p === PHASES.DESCENDING) return t('aerialview.obstacle_below');
+  return '';
+});
+const isPreCaching = computed(() => {
+  const p = altitudeGate.flightPhase.value;
+  return p === PHASES.PRE_TAKEOFF || p === PHASES.PRE_LANDING;
+});
+const showStreetView = computed(() => (drone.alt - altitudeGate.surfaceAlt.value) < ASCEND_THRESHOLD);
+const shouldPrewarmSV = computed(() => (drone.alt - altitudeGate.surfaceAlt.value) < 20);
+const isTransitioning = computed(() => {
+  const rel = drone.alt - altitudeGate.surfaceAlt.value;
+  return rel >= DESCEND_THRESHOLD && rel < ASCEND_THRESHOLD;
+});
+const streetViewOpacity = computed(() => {
+  const rel = drone.alt - altitudeGate.surfaceAlt.value;
+  if (rel <= DESCEND_THRESHOLD) return 1;
+  if (rel >= ASCEND_THRESHOLD) return 0;
+  return 1 - (rel - DESCEND_THRESHOLD) / (ASCEND_THRESHOLD - DESCEND_THRESHOLD);
+});
 const takeoffLandingLabel = computed(() => {
-  if (altitudeGate.isAutoTakingOff.value) return t('aerialview.taking_off');
-  if (altitudeGate.isAutoLanding.value) return t('aerialview.landing_in_progress');
+  const p = altitudeGate.flightPhase.value;
+  if (p === PHASES.PRE_TAKEOFF) return t('aerialview.preparing_takeoff');
+  if (p === PHASES.PRE_LANDING) return t('aerialview.scanning_landing');
+  if (p === PHASES.ASCENDING) return t('aerialview.taking_off');
+  if (p === PHASES.DESCENDING) return t('aerialview.landing_in_progress');
   return altitudeGate.isOnGround.value ? t('aerialview.takeoff') : t('aerialview.landing');
 });
 
@@ -89,15 +119,20 @@ function toggleTakeoffLanding() {
   }
 }
 
-watch(showStreetView, (onGround) => {
-  const viewer = window.cesiumViewer;
-  if (viewer) {
-    viewer.scene.globe.show = !onGround;
-  }
-  if (cesiumContainer.value) {
-    cesiumContainer.value.classList.toggle('cesium-hidden', onGround);
-  }
-});
+watch(
+  [showStreetView, isTransitioning, streetViewReady],
+  ([show, transitioning, svReady]) => {
+    const viewer = window.cesiumViewer;
+    if (viewer) {
+      viewer.scene.globe.show = show && transitioning;
+    }
+    if (cesiumContainer.value) {
+      // Only hide Cesium when Street View is fully loaded to prevent black flash
+      cesiumContainer.value.classList.toggle('cesium-hidden', show && !transitioning && svReady);
+    }
+  },
+  { immediate: true }
+);
 
 function getFlightCommandSpeed() {
   if (activeFlightMode.value === 'M') {
@@ -219,12 +254,16 @@ function updateDroneState() {
 
   if (isTakeoffLanding.value) {
     altitudeGate.stepAuto(dt, viewer);
-    onFlightStop();
-    onCameraStop();
-    return;
+    // During collision pause, allow manual flight/camera so user can reposition.
+    // Only block manual input when the auto sequence is actively moving.
+    if (!isPausedByCollision.value) {
+      onFlightStop();
+      onCameraStop();
+      return;
+    }
   }
 
-  const allowAltitude = !altitudeGate.isOnGround.value;
+  const allowAltitude = !altitudeGate.isOnGround.value || activeFlightMode.value === 'H';
   let enuMove = null;
 
   if (showFlight.value) {
@@ -247,11 +286,16 @@ function updateDroneState() {
   }
 
   if (altitudeGate.isOnGround.value) {
-    altitudeGate.snapToGround();
-    if (activeFlightMode.value === 'H') {
-      onFlightModeChange('M');
+    if (activeFlightMode.value === 'M') {
+      // M-mode: clamp to ground, no vertical movement allowed
+      altitudeGate.snapToGround();
+      flightCmd.vz = 0;
+    } else if (activeFlightMode.value === 'R') {
+      // R-mode: allow rotation, clamp altitude to ground
+      altitudeGate.snapToGround();
+      flightCmd.vz = 0;
     }
-    flightCmd.vz = 0;
+    // H-mode: no ground clamp — user controls altitude freely
   }
 
   if (showCamera.value) {
@@ -281,6 +325,12 @@ onMounted(() => {
   registerPage({ id: 'extensions', nameKey: 'aerialview.page_extensions', route: '/extensions' });
 
   registerLeft({
+    id: 'chat',
+    icon: 'MENU_CHAT',
+    titleKey: 'aerialview.chat',
+    onClick: goToChat,
+  });
+  registerLeft({
     id: 'router',
     render: () => h(DockMenuButton, {
       icon: 'MENU_ROUTER',
@@ -288,12 +338,6 @@ onMounted(() => {
       pages,
       onBeforeOpen: hideAllDisks,
     }),
-  });
-  registerLeft({
-    id: 'chat',
-    icon: 'MENU_CHAT',
-    titleKey: 'aerialview.chat',
-    onClick: goToChat,
   });
   registerLeft({
     id: 'camera',
@@ -333,12 +377,37 @@ onMounted(() => {
     if (item) item.active = val;
   });
 
-  // Sync takeoff/landing button icon and label with altitude (< 5m above ground)
-  watch(isLowAltitude, (low) => {
-    const item = rightItems.find((i) => i.id === 'takeoff');
-    if (item) {
-      item.icon = low ? 'MENU_TAKEOFF' : 'MENU_LANDING';
-      item.titleKey = low ? 'aerialview.takeoff' : 'aerialview.landing';
+  // Sync takeoff/landing button icon and label.
+  // < 10m from ground → Takeoff,  > 100m from ground → Landing.
+  // Between 10–100m → keep the previous state unchanged.
+  watch(
+    [isLowAltitude, isHighAltitude],
+    ([low, high]) => {
+      const item = rightItems.find((i) => i.id === 'takeoff');
+      if (!item) return;
+      // In the 10–100m band, preserve the current button state.
+      if (!low && !high) return;
+      const showTakeoff = low;
+      item.icon = showTakeoff ? 'MENU_TAKEOFF' : 'MENU_LANDING';
+      item.titleKey = showTakeoff ? 'aerialview.takeoff' : 'aerialview.landing';
+    },
+    { immediate: true }
+  );
+
+  // Disable non-navigation dock buttons during takeoff/landing transitions.
+  // During collision pause, only the takeoff/landing button stays disabled
+  // (flight/camera controls remain active so user can reposition).
+  // Pages (router) and Chat buttons remain enabled so the user can navigate away.
+  watch([isTakeoffLanding, isPausedByCollision], ([transitioning, paused]) => {
+    const disableAllIds = ['steer', 'takeoff', 'camera', 'recorder'];
+    const disableButtonOnlyIds = ['takeoff'];
+    const disableIds = paused ? disableButtonOnlyIds : disableAllIds;
+    for (const list of [leftItems, rightItems]) {
+      for (const item of list) {
+        if (disableAllIds.includes(item.id)) {
+          item.disabled = transitioning && disableIds.includes(item.id);
+        }
+      }
     }
   });
 
@@ -368,7 +437,7 @@ onUnmounted(() => {
     :show-camera="showCamera"
     :flight="flight"
     :camera="camera"
-    :disabled="isTakeoffLanding"
+        :disabled="isAutoActive"
     @flightMove="onFlightMove"
     @flightStop="onFlightStop"
     @flightModeChange="onFlightModeChange"
@@ -385,11 +454,26 @@ onUnmounted(() => {
         :pitch="getStreetViewPov().pitchRad"
         :altitude="getStreetViewPov().relativeAlt"
         :visible="showStreetView"
+        :prewarm="shouldPrewarmSV"
+        :style="{ opacity: streetViewOpacity }"
+        @ready="streetViewReady = true"
       />
     </template>
 
     <template #top-overlay>
       <CollisionWarning :visible="isCollisionFrozen" />
+      <div v-if="collisionPausedMessage" class="top-center-message top-center-message--warning">
+        {{ collisionPausedMessage }}
+      </div>
+      <div v-if="lockedMessage" class="top-center-message top-center-message--warning">
+        {{ lockedMessage }}
+      </div>
+      <div
+        v-if="isPreCaching"
+        class="pre-cache-overlay"
+      >
+        <span class="pre-cache-overlay__text">{{ takeoffLandingLabel }}</span>
+      </div>
     </template>
   </ViewComposer>
 </template>
@@ -404,5 +488,75 @@ onUnmounted(() => {
 
 :deep(.view-composer__background.street-view-pane--visible) {
   pointer-events: auto;
+}
+
+.pre-cache-overlay {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: inline-flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.pre-cache-overlay__text {
+  font-family: Calibri, 'Segoe UI', sans-serif;
+  font-size: 0.77rem;
+  font-weight: 700;
+  color: #ffffff;
+  padding: 12px 28px;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.88);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  box-shadow: 0 0 18px rgba(34, 197, 94, 0.6);
+  animation: scan-pulse 1.2s ease-in-out infinite;
+}
+
+.pre-cache-overlay--shake {
+  animation: engine-shake 0.08s infinite alternate;
+}
+
+.pre-cache-overlay--scan .pre-cache-overlay__text {
+  animation: scan-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes engine-shake {
+  0%   { transform: translateX(-50%) translate(1px, -1px); }
+  25%  { transform: translateX(-50%) translate(-1px, 2px); }
+  50%  { transform: translateX(-50%) translate(2px, 0px); }
+  75%  { transform: translateX(-50%) translate(-2px, -1px); }
+  100% { transform: translateX(-50%) translate(1px, 1px); }
+}
+
+@keyframes scan-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
+
+.top-center-message {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  padding: 12px 28px;
+  border-radius: 8px;
+  font-family: Calibri, 'Segoe UI', sans-serif;
+  font-size: 0.77rem;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  pointer-events: none;
+  text-align: center;
+  letter-spacing: 0.02em;
+}
+
+.top-center-message--warning {
+  background: rgba(180, 100, 0, 0.9);
+  box-shadow: 0 0 18px rgba(180, 100, 0, 0.6);
+  animation: scan-pulse 1.2s ease-in-out infinite;
 }
 </style>

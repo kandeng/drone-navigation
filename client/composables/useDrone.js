@@ -1,9 +1,12 @@
 import { reactive } from 'vue';
+import { useAppSettings } from './useAppSettings.js';
+
+const { settings } = useAppSettings();
 
 const drone = reactive({
-  lat: 37.7937,
-  lon: -122.3965,
-  alt: 300.0,
+  lat: settings.defaultLat,
+  lon: settings.defaultLon,
+  alt: settings.defaultAlt,
   heading: 0.0,
 });
 

@@ -3,6 +3,9 @@ import config from '../../config.json';
 const CALLBACK_NAME = '__gmapsStreetViewInit';
 const API_KEY = config.googleApiKey ?? '';
 
+// Must match SWITCH_ALTITUDE - HYSTERESIS in useAltitudeGate.js
+const STREET_VIEW_MAX_ALT = 8.0;
+
 let mapsPromise = null;
 
 /**
@@ -78,13 +81,91 @@ export function cesiumPitchToStreetView(pitchRad) {
 }
 
 /**
- * Map drone altitude (0..15 m) to a Street View zoom level (0..3).
- * Higher zoom = narrower FOV = elevated feel.
- * Lower zoom = wider FOV = immersive ground-level feel.
+ * Map drone altitude (0..8 m) to a Street View zoom level (0..1).
+ * Capped at 1.0 to avoid aggressive magnification that looks like a
+ * horizontal zoom rather than a vertical ascent.
  */
 export function altitudeToStreetViewZoom(altitudeM) {
-  const t = Math.max(0, Math.min(1, altitudeM / 15));
-  return t * 3; // 0 at ground, 3 at 15 m
+  const t = Math.max(0, Math.min(1, altitudeM / STREET_VIEW_MAX_ALT));
+  return t * 1; // 0 at ground, 1 at STREET_VIEW_MAX_ALT
+}
+
+/**
+ * Compute a pitch offset (degrees) to add to the drone's gimbal pitch
+ * when rendering Street View. Tilts the view upward as altitude rises
+ * to better simulate a rising viewpoint (more sky/horizon, less street).
+ */
+export function altitudeToStreetViewPitchOffset(altitudeM) {
+  const t = Math.max(0, Math.min(1, altitudeM / STREET_VIEW_MAX_ALT));
+  return t * 30; // 0° at ground, +30° at STREET_VIEW_MAX_ALT
+}
+
+/**
+ * Pre-warm the Street View cache at a given location by fetching panorama
+ * metadata and creating a hidden panorama to pre-load tile images.
+ * Returns a Promise that resolves when warming is complete or times out.
+ */
+export async function prewarmStreetView(lat, lon) {
+  try {
+    const maps = await loadGoogleMaps();
+
+    // Step 1: Fetch panorama metadata
+    const service = new maps.StreetViewService();
+    await service.getPanorama({
+      location: { lat, lng: lon },
+      radius: 50,
+      source: maps.StreetViewSource.OUTDOOR,
+    });
+
+    // Step 2: Create a hidden off-screen panorama to pre-load tile images
+    const hiddenContainer = document.createElement('div');
+    hiddenContainer.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:256px;height:256px;overflow:hidden;';
+    document.body.appendChild(hiddenContainer);
+
+    const panorama = new maps.StreetViewPanorama(hiddenContainer, {
+      position: { lat, lng: lon },
+      pov: { heading: 0, pitch: 0 },
+      zoom: 1,
+      addressControl: false,
+      clickToGo: false,
+      disableDefaultUI: true,
+      fullscreenControl: false,
+      linksControl: false,
+      motionTracking: false,
+      motionTrackingControl: false,
+      panControl: false,
+      scrollwheel: false,
+      showRoadLabels: false,
+      streetViewControl: false,
+      zoomControl: false,
+      enableCloseButton: false,
+    });
+
+    // Step 3: Wait for tiles to load or timeout
+    await new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        cleanup();
+        resolve();
+      }, 2000);
+
+      function cleanup() {
+        clearTimeout(timeout);
+      }
+
+      panorama.addListener('status_changed', () => {
+        cleanup();
+        // Give tiles a moment to finish loading
+        setTimeout(resolve, 300);
+      });
+    });
+
+    // Step 4: Destroy the hidden panorama
+    if (hiddenContainer.parentNode) {
+      hiddenContainer.parentNode.removeChild(hiddenContainer);
+    }
+  } catch (e) {
+    // Silently ignore — pre-warming is best-effort.
+  }
 }
 
 /**

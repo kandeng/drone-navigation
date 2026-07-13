@@ -1,23 +1,46 @@
 import { ref, computed } from 'vue';
+import { useAppSettings } from '../../../composables/useAppSettings.js';
+import { prewarmStreetView } from '../../../3d_street/src/streetView.js';
 
 /* global Cesium */
 
-const DESCEND_THRESHOLD = 15.0; // meters: switch to street view
-const ASCEND_THRESHOLD = 18.0;  // meters: switch back to aerial view
+const { settings } = useAppSettings();
+
+export const SWITCH_ALTITUDE = 10.0;  // meters: center of the switch threshold (test: 15, 20, etc.)
+const HYSTERESIS = 2.0;               // meters: half-width of the hysteresis band
+export const DESCEND_THRESHOLD = SWITCH_ALTITUDE - HYSTERESIS; // switch to street view
+export const ASCEND_THRESHOLD = SWITCH_ALTITUDE + HYSTERESIS;  // switch back to aerial view
 const AUTO_SPEED = 8.0;         // meters per second for auto takeoff/landing
 const AUTO_TOLERANCE = 0.2;     // meters: stop auto when within this distance
+const PRE_TAKEOFF_DELAY = 2500; // ms: hold during PRE_TAKEOFF for tile caching
+const PRE_LANDING_DELAY = 1500; // ms: hold during PRE_LANDING for panorama caching
+
+export const PHASES = {
+  IDLE: 'IDLE',
+  PRE_TAKEOFF: 'PRE_TAKEOFF',
+  ASCENDING: 'ASCENDING',
+  CRUISING: 'CRUISING',
+  PRE_LANDING: 'PRE_LANDING',
+  DESCENDING: 'DESCENDING',
+};
 
 /**
  * Composable that tracks the drone's altitude relative to the 3D tileset
  * surface, manages a hysteresis-based aerial/ground state, and drives
- * automatic takeoff/landing sequences.
+ * automatic takeoff/landing sequences with pre-cache delay phases.
  */
 export function useAltitudeGate(drone) {
   const surfaceAlt = ref(0);
   const isOnGround = ref(true);
-  const isAutoTakingOff = ref(false);
-  const isAutoLanding = ref(false);
-  const isTransitioning = computed(() => isAutoTakingOff.value || isAutoLanding.value);
+  const flightPhase = ref(PHASES.IDLE);
+  const lastSequence = ref('landing'); // tracks last auto sequence: 'takeoff' or 'landing'
+  const isPausedByCollision = ref(false);
+  let phaseTimer = null;
+
+  const isTransitioning = computed(() => {
+    const p = flightPhase.value;
+    return p !== PHASES.IDLE && p !== PHASES.CRUISING;
+  });
 
   /**
    * Sample the 3D tileset surface directly beneath the drone.
@@ -81,44 +104,111 @@ export function useAltitudeGate(drone) {
   }
 
   /**
-   * Start an automatic takeoff to 15 m above the current surface.
+   * Start an automatic takeoff with a pre-cache delay phase.
+   * Phase: IDLE -> PRE_TAKEOFF (delay) -> ASCENDING
    */
   function startTakeoff(viewer) {
     update(viewer); // refresh surfaceAlt first
-    isAutoTakingOff.value = true;
-    isAutoLanding.value = false;
+    flightPhase.value = PHASES.PRE_TAKEOFF;
+    isOnGround.value = false; // unlock ground clamp immediately
+    lastSequence.value = 'takeoff';
+    prewarmTiles(viewer);
+    clearTimeout(phaseTimer);
+    phaseTimer = setTimeout(() => {
+      flightPhase.value = PHASES.ASCENDING;
+    }, PRE_TAKEOFF_DELAY);
   }
 
   /**
-   * Start an automatic landing at the current surface altitude.
+   * Start an automatic landing with a pre-cache delay phase.
+   * Phase: CRUISING -> PRE_LANDING (delay) -> DESCENDING
    */
   function startLanding(viewer) {
     update(viewer); // refresh surfaceAlt first
-    isAutoLanding.value = true;
-    isAutoTakingOff.value = false;
+    flightPhase.value = PHASES.PRE_LANDING;
+    lastSequence.value = 'landing';
+    prewarmStreetView(drone.lat, drone.lon);
+    clearTimeout(phaseTimer);
+    phaseTimer = setTimeout(() => {
+      flightPhase.value = PHASES.DESCENDING;
+    }, PRE_LANDING_DELAY);
+  }
+
+  /**
+   * Cast a vertical ray (up or down) from the drone to check for obstacles
+   * in the 3D tileset. Returns true if an obstacle is within the safety buffer.
+   */
+  function checkVerticalCollision(viewer, ascending) {
+    if (!viewer) return false;
+    const tileset = window.getGoogleTileset ? window.getGoogleTileset() : null;
+    if (!tileset) return false;
+
+    const position = Cesium.Cartesian3.fromDegrees(drone.lon, drone.lat, drone.alt);
+    const surfaceNormal = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(position, new Cesium.Cartesian3());
+    const direction = ascending
+      ? surfaceNormal
+      : Cesium.Cartesian3.negate(surfaceNormal, new Cesium.Cartesian3());
+
+    const ray = new Cesium.Ray(position, direction);
+    const result = viewer.scene.pickFromRay(ray);
+    if (!result || !result.position) return false;
+
+    const hitObject = result.object;
+    const isTilesetHit =
+      hitObject === tileset ||
+      (hitObject && hitObject.tileset === tileset) ||
+      (hitObject && hitObject.primitive === tileset);
+    if (!isTilesetHit) return false;
+
+    // For landing (descending): compute the altitude of the hit point.
+    // If the hit is at or below the expected ground surface, it IS the
+    // ground — not an obstacle. Only flag hits above the surface.
+    if (!ascending) {
+      const hitCartographic = Cesium.Cartographic.fromCartesian(result.position);
+      const hitAlt = hitCartographic ? hitCartographic.height : 0;
+      if (hitAlt <= surfaceAlt.value + 1.0) return false;
+    }
+
+    const distance = Cesium.Cartesian3.distance(position, result.position);
+    const buffer = settings.safetyBuffer;
+    return distance <= buffer;
   }
 
   /**
    * Run the automatic takeoff/landing step. Returns true if the sequence
-   * completed this frame.
+   * completed this frame. No-op during PRE_TAKEOFF / PRE_LANDING delay phases.
    */
   function stepAuto(dt, viewer) {
     update(viewer);
 
-    if (isAutoTakingOff.value) {
-      const target = surfaceAlt.value + DESCEND_THRESHOLD;
+    if (flightPhase.value === PHASES.ASCENDING) {
+      // Check for obstacles above before ascending.
+      // On collision, pause the sequence and wait for the user to move.
+      if (checkVerticalCollision(viewer, true)) {
+        isPausedByCollision.value = true;
+        return false;
+      }
+      isPausedByCollision.value = false;
+      const target = surfaceAlt.value + settings.takeoffAltitude;
       if (stepToward(target, dt)) {
-        isAutoTakingOff.value = false;
+        flightPhase.value = PHASES.CRUISING;
         isOnGround.value = false;
         return true;
       }
       return false;
     }
 
-    if (isAutoLanding.value) {
+    if (flightPhase.value === PHASES.DESCENDING) {
+      // Check for obstacles below before descending.
+      // On collision, pause the sequence and wait for the user to move.
+      if (checkVerticalCollision(viewer, false)) {
+        isPausedByCollision.value = true;
+        return false;
+      }
+      isPausedByCollision.value = false;
       const target = surfaceAlt.value;
       if (stepToward(target, dt)) {
-        isAutoLanding.value = false;
+        flightPhase.value = PHASES.IDLE;
         isOnGround.value = true;
         return true;
       }
@@ -137,15 +227,69 @@ export function useAltitudeGate(drone) {
   }
 
   function cancelAuto() {
-    isAutoTakingOff.value = false;
-    isAutoLanding.value = false;
+    clearTimeout(phaseTimer);
+    phaseTimer = null;
+    isPausedByCollision.value = false;
+    flightPhase.value = PHASES.CRUISING;
+  }
+
+  /**
+   * Pre-warm the Cesium tile cache at the drone's position and target altitude.
+   * Positions the hidden camera at targetAlt and sweeps pitch from 0 to -30 deg
+   * to cache a wider cone of tiles before the drone ascends.
+   */
+  function prewarmTiles(viewer) {
+    if (!viewer) return;
+    const camera = viewer.camera;
+    const savedPosition = camera.position.clone();
+    const savedHeading = camera.heading;
+    const savedPitch = camera.pitch;
+    const savedRoll = camera.roll;
+
+    const targetAlt = surfaceAlt.value + settings.takeoffAltitude;
+    const warmPosition = Cesium.Cartesian3.fromDegrees(drone.lon, drone.lat, targetAlt);
+
+    // Sweep pitch angles to cache a wider tile cone
+    const pitchSweep = [0, -Math.PI / 12, -Math.PI / 6]; // 0, -15, -30 degrees
+    const sweepInterval = 400; // ms between sweeps
+
+    // Initial position at pitch 0
+    camera.setView({
+      destination: warmPosition,
+      orientation: { heading: savedHeading, pitch: pitchSweep[0], roll: 0 },
+    });
+    viewer.scene.requestRender();
+
+    // Sweep additional pitch angles during the hold
+    for (let i = 1; i < pitchSweep.length; i++) {
+      setTimeout(() => {
+        if (viewer && !viewer.isDestroyed()) {
+          camera.setView({
+            destination: warmPosition,
+            orientation: { heading: savedHeading, pitch: pitchSweep[i], roll: 0 },
+          });
+          viewer.scene.requestRender();
+        }
+      }, sweepInterval * i);
+    }
+
+    // Restore original camera after all sweeps
+    setTimeout(() => {
+      if (viewer && !viewer.isDestroyed()) {
+        camera.setView({
+          destination: savedPosition,
+          orientation: { heading: savedHeading, pitch: savedPitch, roll: savedRoll },
+        });
+      }
+    }, sweepInterval * pitchSweep.length);
   }
 
   return {
     surfaceAlt,
     isOnGround,
-    isAutoTakingOff,
-    isAutoLanding,
+    flightPhase,
+    lastSequence,
+    isPausedByCollision,
     isTransitioning,
     update,
     startTakeoff,
@@ -153,5 +297,6 @@ export function useAltitudeGate(drone) {
     stepAuto,
     snapToGround,
     cancelAuto,
+    prewarmTiles,
   };
 }

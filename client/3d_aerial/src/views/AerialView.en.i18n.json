@@ -20,5 +20,17 @@
   "settings_language": "Language",
   "settings_font": "Font",
   "settings_font_style": "Font Style",
-  "settings_font_size": "Font Size"
+  "settings_font_size": "Font Size",
+  "settings_flight": "Flight",
+  "settings_takeoff_altitude": "Takeoff Altitude (m)",
+  "calibrating": "Calibrating...",
+  "preparing_takeoff": "Preparing takeoff...",
+  "obstacle_above": "Obstacle detected above. Please move the drone to continue.",
+  "obstacle_below": "Obstacle detected below. Please move the drone to continue.",
+  "recorder_locked": "Recorder is locked during auto sequence.",
+  "scanning_landing": "Scanning landing zone...",
+  "settings_safety_buffer": "Safety Buffer (m)",
+  "settings_default_lat": "Initial Latitude",
+  "settings_default_lon": "Initial Longitude",
+  "settings_default_alt": "Initial Altitude (m)"
 }

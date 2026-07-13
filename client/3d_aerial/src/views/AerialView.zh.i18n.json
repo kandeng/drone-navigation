@@ -20,5 +20,17 @@
   "settings_language": "语言",
   "settings_font": "字体",
   "settings_font_style": "字体样式",
-  "settings_font_size": "字号"
+  "settings_font_size": "字号",
+  "settings_flight": "飞行",
+  "settings_takeoff_altitude": "起飞高度 (米)",
+  "calibrating": "校准中...",
+  "preparing_takeoff": "准备起飞中...",
+  "obstacle_above": "检测到上方障碍物，请移动无人机继续。",
+  "obstacle_below": "检测到下方障碍物，请移动无人机继续。",
+  "recorder_locked": "自动序列期间录制器已锁定。",
+  "scanning_landing": "扫描降落区域...",
+  "settings_safety_buffer": "安全缓冲区 (米)",
+  "settings_default_lat": "初始纬度",
+  "settings_default_lon": "初始经度",
+  "settings_default_alt": "初始高度 (米)"
 }

@@ -1,4 +1,5 @@
 import config from '../../config.json';
+import { useAppSettings } from '../../composables/useAppSettings.js';
 
 Cesium.GoogleMaps.defaultApiKey = config.googleApiKey;
 Cesium.Ion.defaultAccessToken = config.cesiumIonToken;
@@ -28,9 +29,10 @@ const viewer = new Cesium.Viewer('cesiumContainer', {
 viewer.scene.globe.show = false;
 
 async function loadArena() {
-    const targetLatitude = 37.7937;
-    const targetLongitude = -122.3965;
-    const targetHeight = 300.0; // Clean view height altitude in meters
+    const { settings } = useAppSettings();
+    const targetLatitude = settings.defaultLat;
+    const targetLongitude = settings.defaultLon;
+    const targetHeight = settings.defaultAlt; // Default altitude from settings
     const initialPosition = Cesium.Cartesian3.fromDegrees(targetLongitude, targetLatitude, targetHeight);
 
     try {

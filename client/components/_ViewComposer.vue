@@ -100,7 +100,7 @@ defineEmits([
   pointer-events: none;
 }
 
-.view-composer > *:not(:deep(.view-composer__background)) {
+.view-composer > * {
   pointer-events: auto;
 }
 
@@ -128,6 +128,7 @@ defineEmits([
   max-width: 1400px;
   padding: 0 clamp(24px, 8vw, 100px);
   box-sizing: border-box;
+  pointer-events: none;
 }
 
 .joystick-group {
