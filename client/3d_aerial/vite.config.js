@@ -7,6 +7,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
+      '@shared': resolve(__dirname, '../components'),
+      '@shared-composables': resolve(__dirname, '../composables'),
     },
   },
   server: {

@@ -194,6 +194,7 @@ function cycleMode() {
 
 function handleStart(e) {
   if (props.disabled) return;
+  const { dx, dy, dist } = getRelativePos(e.clientX, e.clientY);
   // Ignore synthetic mouse events after touch.
   if (e.pointerType === 'touch') {
     lastTouchTime.value = Date.now();
@@ -202,8 +203,6 @@ function handleStart(e) {
   }
   e.preventDefault();
   trackRef.value?.setPointerCapture(e.pointerId);
-
-  const { dx, dy, dist } = getRelativePos(e.clientX, e.clientY);
 
   if (isModeCycling.value && dist < 0.35) {
     // Center press initiates mode cycle (matches reference PWA behavior).
@@ -329,10 +328,10 @@ function handleEnd(e) {
 .joystick-track {
   position: relative;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.03);
-  backdrop-filter: blur(2px);
-  border: 1px solid rgba(156, 163, 175, 0.2);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(6px);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2), inset 0 0 20px rgba(255, 255, 255, 0.08);
   touch-action: none;
   user-select: none;
   cursor: pointer;
@@ -387,9 +386,13 @@ function handleEnd(e) {
   justify-content: center;
 }
 
-.glyph-svg :deep(svg) {
+.glyph-svg :deep(svg),
+.glyph-svg :deep(img) {
   width: 100%;
   height: 100%;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
 .joystick-knob {
@@ -399,8 +402,9 @@ function handleEnd(e) {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
-  border: 1px solid rgba(156, 163, 175, 0.4);
+  background: rgba(255, 255, 255, 0.55);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -409,15 +413,16 @@ function handleEnd(e) {
 }
 
 .joystick-knob--active {
-  background: rgba(55, 65, 81, 0.3);
-  border-color: rgba(107, 114, 128, 0.4);
+  background: rgba(200, 210, 230, 0.65);
+  border-color: rgba(255, 255, 255, 0.85);
 }
 
 .knob-label {
   font-family: Calibri, 'Segoe UI', sans-serif;
   font-size: 1.25rem;
   font-weight: 700;
-  color: rgba(55, 65, 81, 0.9);
+  color: rgba(30, 40, 60, 0.95);
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
   transition: color 0.15s ease;
 }
 

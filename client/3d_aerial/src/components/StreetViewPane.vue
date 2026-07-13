@@ -20,7 +20,6 @@ const error = ref(null);
 
 async function initStreetView() {
   if (!containerRef.value || streetView.value) return;
-  console.log('[StreetViewPane] Initializing Street View at', { lat: props.lat, lon: props.lon });
   try {
     streetView.value = await createStreetView(containerRef.value, {
       lat: props.lat,
@@ -38,7 +37,6 @@ async function initStreetView() {
 watch(
   () => props.visible,
   async (visible) => {
-    console.log('[StreetViewPane] visible changed:', visible);
     if (visible && !streetView.value) {
       await initStreetView();
     }

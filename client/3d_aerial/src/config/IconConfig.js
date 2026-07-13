@@ -16,7 +16,7 @@ const pngModules = import.meta.glob('../../../asset/*.png', {
 
 export const IconMap = {
   // Sidebar menu icons
-  MENU_CONTROL_STICK: '../../../asset/control-stick.svg',
+  MENU_CONTROL_STICK: '../../../asset/steer.svg',
   MENU_LOCATION: '../../../asset/location.svg',
   MENU_3D_VIEW: '../../../asset/drone.svg',
   MENU_SETTINGS: '../../../asset/settings.svg',

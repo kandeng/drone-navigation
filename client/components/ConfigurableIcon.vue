@@ -47,6 +47,7 @@ const style = computed(() => ({
       :src="imageUrl"
       :alt="name"
       class="configurable-icon__img"
+      draggable="false"
     />
     <span v-else v-html="svgMarkup"></span>
   </span>
@@ -59,6 +60,7 @@ const style = computed(() => ({
   justify-content: center;
   flex-shrink: 0;
   line-height: 0;
+  pointer-events: none !important;
 }
 
 .configurable-icon :deep(svg) {
@@ -70,5 +72,8 @@ const style = computed(() => ({
   width: 100%;
   height: 100%;
   object-fit: contain;
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none !important;
 }
 </style>

@@ -1,5 +1,89 @@
 # Drone Navigation
 
+A multi-view drone navigation dashboard with a shared component architecture.
+
+## Architecture
+
+```
+client/
+├── 3d_aerial/              # Vite + Vue 3 host app (pages, router, Cesium)
+│   └── src/
+│       ├── views/          # Page components (AerialView, Map2DView, Satellite2DView, ChatView)
+│       ├── components/     # App-specific components (CollisionWarning, StreetViewPane)
+│       ├── composables/    # App-specific composables (useAltitudeGate)
+│       ├── config/         # IconConfig.js — centralized SVG icon registry
+│       ├── router/         # Vue Router routes
+│       ├── cesium-main.js  # Cesium viewer init, Google 3D Tiles, camera sync
+│       └── dronePhysics.js # Legacy keyboard-driven drone physics (WASD + arrows)
+├── components/             # Shared UI components used by all pages
+│   ├── _ViewComposer.vue
+│   ├── _DiskBase.vue
+│   ├── AppDock.vue
+│   ├── DockButton.vue
+│   ├── FlightController.vue
+│   ├── GimbalController.vue
+│   ├── HUD.vue
+│   └── ConfigurableIcon.vue
+├── composables/            # Shared reactive state and physics
+│   ├── useDrone.js
+│   ├── useFlightCommands.js
+│   ├── useFlightPhysics.js
+│   ├── useCameraCommands.js
+│   ├── useCameraPhysics.js
+│   └── useDockRegistry.js
+├── 2d_map/                 # Google Maps 2D map module
+├── 3d_street/              # Google Street View panorama module
+├── ai_chat/                # AI chat module (placeholder)
+└── asset/                  # SVG icons used by ConfigurableIcon
+```
+
+Pages are composed with `_ViewComposer.vue`, which provides:
+
+- Configurable left/right docks.
+- Flight and gimbal control disks (built on `_DiskBase.vue`).
+- The HUD dashboard (toggleable via `showHud` prop).
+- A `disabled` prop to lock joysticks during auto takeoff/landing.
+- `background` and `top-overlay` slots for page-specific content.
+
+Each page registers its own dock buttons through `useDockRegistry()` (a module-level singleton), so third-party plugins can add sidebar items by calling `registerLeft()` or `registerRight()` inside their setup code.
+
+## Pages
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `/` | `AerialView.vue` | 3D photorealistic aerial view (Cesium) with collision detection, auto takeoff/landing, and Street View fallback when grounded. |
+| `/map` | `Map2DView.vue` | 2D Google Map with a centered drone icon. |
+| `/satellite` | `Satellite2DView.vue` | 2D Google Satellite view. |
+| `/chat` | `ChatView.vue` | Mission-control chat interface. |
+
+## Key features
+
+### Collision detection (`AerialView.vue`)
+
+Raycasts against the Google Photorealistic 3D tileset in the drone's movement direction. When an obstacle is detected within a safety buffer (2 m + speed × 2 s lookahead), movement is projected along the surface normal to prevent the drone from passing through buildings or terrain. A red warning banner (`CollisionWarning.vue`) flashes at the top of the screen while movement is restricted.
+
+### Auto takeoff / landing (`useAltitudeGate.js`)
+
+A hysteresis-based altitude gate manages ground/air state:
+
+- **Descend threshold**: ≤ 15 m above surface → considered on ground.
+- **Ascend threshold**: ≥ 18 m above surface → considered airborne.
+- **Auto sequence**: moves altitude at 8 m/s toward the target (surface altitude for landing, surface + 15 m for takeoff).
+
+Flight controls are locked during the transition. When the drone is on the ground, the Cesium globe is hidden and a Google Street View panorama (`StreetViewPane.vue`) is shown instead, synced to drone position, heading, and gimbal angles.
+
+### Street View ground mode (`3d_street/`)
+
+Dynamically loads the Google Maps JavaScript API and creates a `StreetViewPanorama` inside `StreetViewPane.vue`. The panorama's position, heading, pitch, and zoom are kept in sync with the drone state. Zoom is mapped from altitude (0 m → wide FOV, 15 m → narrow elevated FOV) to give an immersive ground-level feel.
+
+### Cesium fallback (`cesium-main.js`)
+
+If Google Photorealistic 3D Tiles fail to load (invalid API key, network error, etc.), the app falls back to **Cesium World Terrain** + **OSM Buildings** and re-enables the base globe so the scene is never blank.
+
+### Icon configuration (`config/IconConfig.js`)
+
+All SVG icons live in `client/asset/` and are mapped by key in `IconConfig.js` using Vite's `import.meta.glob`. The `ConfigurableIcon.vue` component resolves a key (e.g. `MENU_CONTROL_STICK`) to the corresponding raw SVG markup. To add or swap an icon, update the mapping in `IconConfig.js` — no component changes needed.
+
 ## Prerequisite
 
 This project needs two external credentials. Set them in `client/config.json` (this file is gitignored; use `client/config.example.json` as a template).
@@ -59,7 +143,8 @@ Then edit it:
 ```json
 {
   "googleApiKey": "YOUR_GOOGLE_MAPS_API_KEY",
-  "cesiumIonToken": "YOUR_CESIUM_ION_ACCESS_TOKEN"
+  "cesiumIonToken": "YOUR_CESIUM_ION_ACCESS_TOKEN",
+  "_note": "The Google API key must have both Map Tiles API and Maps JavaScript API enabled for 3D aerial tiles, Street View, and the 2D map toggle."
 }
 ```
 
@@ -75,7 +160,39 @@ npm run dev
 
 Open http://localhost:5173.
 
-Click the **2D Map** button in the left sidebar to switch to a 2D Google Map centered on the drone. Click the **3D View** (drone) button to return to the photorealistic 3D view.
+- `/` — 3D aerial view with collision detection, auto takeoff/landing, flight/gimbal disks, and the HUD.
+- `/map` — 2D Google Map centered on the drone.
+- `/satellite` — 2D Google Satellite view.
+- `/chat` — Mission-control chat interface.
+
+Use the left and right sidebar docks to toggle disks, navigate between pages, take off/land, or open chat.
+
+## Adding a plugin dock button
+
+Plugins (or new pages) can register sidebar items through the shared dock registry:
+
+```js
+import { useDockRegistry } from '@shared-composables/useDockRegistry.js';
+
+const { registerLeft, registerRight } = useDockRegistry();
+
+registerLeft({
+  id: 'my-plugin',
+  icon: 'MENU_CONTROL_STICK',
+  title: 'My Plugin',
+  active: false,
+  onClick: () => { /* ... */ },
+});
+```
+
+Items are reactive arrays, so registration/unregistration is reflected immediately in `AppDock.vue`.
+
+## Build
+
+```bash
+cd client/3d_aerial
+npm run build
+```
 
 ### Adding more Google APIs later
 
@@ -86,3 +203,7 @@ If a new feature needs another Google Maps Platform API (for example Geocoding A
 3. Click **Enable**.
 4. Go to **APIs & Services** → **Credentials**, click your API key, and add the new API under **API restrictions**.
 5. Rebuild and restart the app.
+
+## Server
+
+The `server/` directory is a placeholder for future backend services. It currently contains only a `config.example.json` and an empty `requirements.txt`.

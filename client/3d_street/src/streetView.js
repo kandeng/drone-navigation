@@ -18,7 +18,6 @@ export function loadGoogleMaps() {
   }
 
   if (window.google?.maps?.StreetViewPanorama) {
-    console.log('[StreetView] Google Maps already loaded');
     mapsPromise = Promise.resolve(window.google.maps);
     return mapsPromise;
   }
@@ -27,8 +26,6 @@ export function loadGoogleMaps() {
     mapsPromise = Promise.reject(new Error('Missing googleApiKey in client/config.json'));
     return mapsPromise;
   }
-
-  console.log('[StreetView] Loading Google Maps JS API...');
 
   mapsPromise = new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -39,7 +36,6 @@ export function loadGoogleMaps() {
     window[CALLBACK_NAME] = () => {
       clearTimeout(timeout);
       if (window.google?.maps?.StreetViewPanorama) {
-        console.log('[StreetView] Google Maps JS API loaded successfully');
         resolve(window.google.maps);
       } else {
         reject(new Error('Google Maps initialized but Street View is unavailable'));
@@ -99,8 +95,6 @@ export async function createStreetView(container, options = {}) {
   const maps = await loadGoogleMaps();
   const { lat, lon, heading = 0, pitch = 0, zoom = 0 } = options;
 
-  console.log('[StreetView] Creating panorama at', { lat, lon, heading, pitch, zoom });
-
   const panorama = new maps.StreetViewPanorama(container, {
     position: { lat, lng: lon },
     pov: {
@@ -127,24 +121,16 @@ export async function createStreetView(container, options = {}) {
 
   panorama.addListener('status_changed', () => {
     const status = panorama.getStatus();
-    console.log('[StreetView] Status changed:', status);
-    if (status === maps.StreetViewStatus.OK) {
-      console.log('[StreetView] Panorama loaded OK');
-    } else if (status === maps.StreetViewStatus.UNKNOWN_ERROR) {
+    if (status === maps.StreetViewStatus.UNKNOWN_ERROR) {
       console.warn('[StreetView] Unknown error loading panorama');
     } else if (status === maps.StreetViewStatus.ZERO_RESULTS) {
       console.warn('[StreetView] No panorama found near', { lat, lon });
     }
   });
 
-  panorama.addListener('pano_changed', () => {
-    console.log('[StreetView] Pano changed:', panorama.getPano());
-  });
-
   return {
     panorama,
     setPosition(lat, lon) {
-      console.log('[StreetView] setPosition', { lat, lon });
       panorama.setPosition({ lat, lng: lon });
     },
     setPov(headingRad, pitchRad) {

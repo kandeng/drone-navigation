@@ -1,5 +1,5 @@
 <script setup>
-import { useDrone } from '@/composables/useDrone.js';
+import { useDrone } from '@shared-composables/useDrone.js';
 
 const { drone, gimbal } = useDrone();
 

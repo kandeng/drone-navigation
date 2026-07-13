@@ -1,7 +1,7 @@
 <script setup>
 import { ref, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
-import ConfigurableIcon from '@/components/ConfigurableIcon.vue';
+import ConfigurableIcon from '@shared/ConfigurableIcon.vue';
 
 const router = useRouter();
 
