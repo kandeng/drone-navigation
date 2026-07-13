@@ -4,6 +4,7 @@
   "camera": "Camera",
   "configuration": "Configuration",
   "chat": "Chat",
+  "recorder": "Recorder",
   "takeoff": "Takeoff",
   "landing": "Landing",
   "taking_off": "Taking Off...",
@@ -12,5 +13,12 @@
   "page_aerial": "3D Aerial",
   "page_map": "2D Map",
   "page_satellite": "Satellite",
-  "page_chat": "Chat"
+  "page_chat": "Chat",
+  "page_settings": "Settings",
+  "page_myspace": "My Space",
+  "page_extensions": "Extensions",
+  "settings_language": "Language",
+  "settings_font": "Font",
+  "settings_font_style": "Font Style",
+  "settings_font_size": "Font Size"
 }

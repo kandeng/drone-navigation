@@ -53,6 +53,9 @@ onMounted(() => {
   registerPage({ id: 'map', nameKey: 'aerialview.page_map', route: '/map' });
   registerPage({ id: 'satellite', nameKey: 'aerialview.page_satellite', route: '/satellite' });
   registerPage({ id: 'chat', nameKey: 'aerialview.page_chat', route: '/chat' });
+  registerPage({ id: 'settings', nameKey: 'aerialview.page_settings', route: '/settings' });
+  registerPage({ id: 'myspace', nameKey: 'aerialview.page_myspace', route: '/myspace' });
+  registerPage({ id: 'extensions', nameKey: 'aerialview.page_extensions', route: '/extensions' });
 
   registerLeft({
     id: 'steer',
@@ -82,6 +85,9 @@ onUnmounted(() => {
   unregisterPage('map');
   unregisterPage('satellite');
   unregisterPage('chat');
+  unregisterPage('settings');
+  unregisterPage('myspace');
+  unregisterPage('extensions');
 });
 </script>
 

@@ -45,22 +45,6 @@ defineEmits([
       <div class="joystick-pair">
         <div
           class="joystick-group"
-          :class="{ 'joystick-group--hidden': !showFlight }"
-        >
-          <FlightController
-            :size="224"
-            :sensitivity="3"
-            enable-mode-cycle
-            :disabled="disabled"
-            @move="$emit('flightMove', $event)"
-            @stop="$emit('flightStop')"
-            @modeChange="$emit('flightModeChange', $event)"
-          />
-          <span class="joystick-label">{{ t('viewcomposer.flight') }}</span>
-        </div>
-
-        <div
-          class="joystick-group"
           :class="{ 'joystick-group--hidden': !showCamera }"
         >
           <GimbalController
@@ -73,6 +57,22 @@ defineEmits([
             @modeChange="$emit('cameraModeChange', $event)"
           />
           <span class="joystick-label">{{ t('viewcomposer.gimbal') }}</span>
+        </div>
+
+        <div
+          class="joystick-group"
+          :class="{ 'joystick-group--hidden': !showFlight }"
+        >
+          <FlightController
+            :size="224"
+            :sensitivity="3"
+            enable-mode-cycle
+            :disabled="disabled"
+            @move="$emit('flightMove', $event)"
+            @stop="$emit('flightStop')"
+            @modeChange="$emit('flightModeChange', $event)"
+          />
+          <span class="joystick-label">{{ t('viewcomposer.flight') }}</span>
         </div>
       </div>
     </main>

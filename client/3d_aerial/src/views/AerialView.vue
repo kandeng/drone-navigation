@@ -5,7 +5,6 @@ import { useRouter } from 'vue-router';
 import ViewComposer from '@shared/_ViewComposer.vue';
 import CollisionWarning from '@/components/CollisionWarning.vue';
 import StreetViewPane from '@/components/StreetViewPane.vue';
-import LanguageSelector from '@shared/LanguageSelector.vue';
 import { useDrone } from '@shared-composables/useDrone.js';
 import { useAltitudeGate } from '@/composables/useAltitudeGate.js';
 import { useFlightCommands } from '@shared-composables/useFlightCommands.js';
@@ -23,6 +22,8 @@ const router = useRouter();
 const { drone, gimbal } = useDrone();
 const altitudeGate = useAltitudeGate(drone);
 altitudeGate.isOnGround.value = drone.alt <= 15;
+
+const isLowAltitude = computed(() => (drone.alt - altitudeGate.surfaceAlt.value) < 5);
 
 const {
   flight,
@@ -275,14 +276,10 @@ onMounted(() => {
   registerPage({ id: 'map', nameKey: 'aerialview.page_map', route: '/map' });
   registerPage({ id: 'satellite', nameKey: 'aerialview.page_satellite', route: '/satellite' });
   registerPage({ id: 'chat', nameKey: 'aerialview.page_chat', route: '/chat' });
+  registerPage({ id: 'settings', nameKey: 'aerialview.page_settings', route: '/settings' });
+  registerPage({ id: 'myspace', nameKey: 'aerialview.page_myspace', route: '/myspace' });
+  registerPage({ id: 'extensions', nameKey: 'aerialview.page_extensions', route: '/extensions' });
 
-  registerLeft({
-    id: 'steer',
-    icon: 'MENU_CONTROL_STICK',
-    titleKey: 'aerialview.steer',
-    active: showFlight.value,
-    onClick: toggleFlight,
-  });
   registerLeft({
     id: 'router',
     render: () => h(DockMenuButton, {
@@ -293,46 +290,56 @@ onMounted(() => {
     }),
   });
   registerLeft({
-    id: 'takeoff',
-    icon: 'MENU_TAKEOFF',
-    titleKey: 'aerialview.takeoff',
-    onClick: toggleTakeoffLanding,
+    id: 'chat',
+    icon: 'MENU_CHAT',
+    titleKey: 'aerialview.chat',
+    onClick: goToChat,
   });
-
-  registerRight({
+  registerLeft({
     id: 'camera',
     icon: 'MENU_CAMERA',
     titleKey: 'aerialview.camera',
     active: showCamera.value,
     onClick: toggleCamera,
   });
-  registerRight({
-    id: 'settings',
-    icon: 'MENU_SETTINGS',
-    titleKey: 'aerialview.configuration',
+  registerLeft({
+    id: 'recorder',
+    icon: 'MENU_RECORDER',
+    titleKey: 'aerialview.recorder',
     onClick: () => {},
   });
+
   registerRight({
-    id: 'chat',
-    icon: 'MENU_CHAT',
-    titleKey: 'aerialview.chat',
-    onClick: goToChat,
+    id: 'steer',
+    icon: 'MENU_CONTROL_STICK',
+    titleKey: 'aerialview.steer',
+    active: showFlight.value,
+    onClick: toggleFlight,
   });
   registerRight({
-    id: 'lang',
-    title: '',
-    active: false,
-    render: () => LanguageSelector,
+    id: 'takeoff',
+    icon: isLowAltitude.value ? 'MENU_TAKEOFF' : 'MENU_LANDING',
+    titleKey: isLowAltitude.value ? 'aerialview.takeoff' : 'aerialview.landing',
+    onClick: toggleTakeoffLanding,
   });
 
   // Sync dock button active states with toggle state
   watch(showFlight, (val) => {
-    const item = leftItems.find((i) => i.id === 'steer');
+    const item = rightItems.find((i) => i.id === 'steer');
     if (item) item.active = val;
   });
   watch(showCamera, (val) => {
-    const item = rightItems.find((i) => i.id === 'camera');
+    const item = leftItems.find((i) => i.id === 'camera');
     if (item) item.active = val;
+  });
+
+  // Sync takeoff/landing button icon and label with altitude (< 5m above ground)
+  watch(isLowAltitude, (low) => {
+    const item = rightItems.find((i) => i.id === 'takeoff');
+    if (item) {
+      item.icon = low ? 'MENU_TAKEOFF' : 'MENU_LANDING';
+      item.titleKey = low ? 'aerialview.takeoff' : 'aerialview.landing';
+    }
   });
 
   rafId = requestAnimationFrame(loop);
@@ -347,6 +354,9 @@ onUnmounted(() => {
   unregisterPage('map');
   unregisterPage('satellite');
   unregisterPage('chat');
+  unregisterPage('settings');
+  unregisterPage('myspace');
+  unregisterPage('extensions');
 });
 </script>
 

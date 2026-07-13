@@ -25,6 +25,7 @@ export const IconMap = {
   MENU_TAKEOFF: '../../../icons/takeoff.svg',
   MENU_LANDING: '../../../icons/landing.svg',
   MENU_ROUTER: '../../../icons/router.svg',
+  MENU_RECORDER: '../../../icons/recorder.svg',
   // Legacy alias, kept for backward compatibility
   MENU_GAMEPAD: '../../../icons/control-stick.svg',
 

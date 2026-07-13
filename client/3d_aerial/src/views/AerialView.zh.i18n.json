@@ -4,6 +4,7 @@
   "camera": "相机",
   "configuration": "配置",
   "chat": "聊天",
+  "recorder": "录制",
   "takeoff": "起飞",
   "landing": "降落",
   "taking_off": "起飞中...",
@@ -12,5 +13,12 @@
   "page_aerial": "3D 航拍",
   "page_map": "2D 地图",
   "page_satellite": "卫星",
-  "page_chat": "聊天"
+  "page_chat": "聊天",
+  "page_settings": "设置",
+  "page_myspace": "我的空间",
+  "page_extensions": "扩展",
+  "settings_language": "语言",
+  "settings_font": "字体",
+  "settings_font_style": "字体样式",
+  "settings_font_size": "字号"
 }

@@ -3,6 +3,9 @@ import AerialView from '@/views/AerialView.vue';
 import Map2DView from '@/views/Map2DView.vue';
 import Satellite2DView from '@/views/Satellite2DView.vue';
 import ChatView from '@/views/ChatView.vue';
+import SettingsView from '@/views/SettingsView.vue';
+import MySpaceView from '@/views/MySpaceView.vue';
+import ExtensionsView from '@/views/ExtensionsView.vue';
 
 const routes = [
   {
@@ -24,6 +27,21 @@ const routes = [
     path: '/chat',
     name: 'Chat',
     component: ChatView,
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: SettingsView,
+  },
+  {
+    path: '/myspace',
+    name: 'MySpace',
+    component: MySpaceView,
+  },
+  {
+    path: '/extensions',
+    name: 'Extensions',
+    component: ExtensionsView,
   },
 ];
 

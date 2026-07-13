@@ -1,0 +1,314 @@
+<script setup>
+import { ref, onMounted, onUnmounted, h, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
+import ViewComposer from '@shared/_ViewComposer.vue';
+import { useDockRegistry } from '@shared-composables/useDockRegistry.js';
+import { usePageRegistry } from '@shared-composables/usePageRegistry.js';
+import DockMenuButton from '@shared/DockMenuButton.vue';
+import { useAppSettings } from '@shared-composables/useAppSettings.js';
+
+const { t, locale } = useI18n();
+const { leftItems, registerLeft, clear } = useDockRegistry();
+const { pages, registerPage, unregisterPage } = usePageRegistry();
+const { settings, setFontFamily, setFontSize } = useAppSettings();
+
+/* ─── Left-column width drag ─── */
+const LEFT_MIN = 180;
+const LEFT_MAX = 400;
+const LEFT_DEFAULT = 220;
+const leftWidth = ref(LEFT_DEFAULT);
+const isDragging = ref(false);
+
+function onDividerPointerDown(e) {
+  e.preventDefault();
+  isDragging.value = true;
+  document.addEventListener('pointermove', onDividerPointerMove);
+  document.addEventListener('pointerup', onDividerPointerUp);
+}
+
+function onDividerPointerMove(e) {
+  if (!isDragging.value) return;
+  const panel = document.querySelector('.settings-page');
+  if (!panel) return;
+  const rect = panel.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  leftWidth.value = Math.min(LEFT_MAX, Math.max(LEFT_MIN, x));
+}
+
+function onDividerPointerUp() {
+  isDragging.value = false;
+  document.removeEventListener('pointermove', onDividerPointerMove);
+  document.removeEventListener('pointerup', onDividerPointerUp);
+}
+
+/* ─── Selected setting ─── */
+const selectedId = ref('language');
+
+const SETTINGS_LIST = [
+  { id: 'language', labelKey: 'aerialview.settings_language' },
+  { id: 'font', labelKey: 'aerialview.settings_font' },
+];
+
+/* ─── Font options ─── */
+const FONT_FAMILIES = [
+  { label: 'Calibri', value: 'Calibri' },
+  { label: 'Segoe UI', value: 'Segoe UI' },
+  { label: 'Tahoma', value: 'Tahoma' },
+  { label: 'Verdana', value: 'Verdana' },
+  { label: 'Arial', value: 'Arial' },
+  { label: 'Noto Sans SC', value: 'Noto Sans SC' },
+  { label: 'Microsoft YaHei', value: 'Microsoft YaHei' },
+  { label: 'SimHei', value: 'SimHei' },
+  { label: 'PingFang SC', value: 'PingFang SC' },
+];
+
+const FONT_SIZES = [
+  { label: '12px', value: '12px' },
+  { label: '14px', value: '14px' },
+  { label: '16px', value: '16px' },
+  { label: '18px', value: '18px' },
+  { label: '20px', value: '20px' },
+  { label: '24px', value: '24px' },
+];
+
+/* ─── Locale persistence (same logic as LanguageSelector.vue) ─── */
+watch(locale, (newLocale) => {
+  localStorage.setItem('user-lang', newLocale);
+});
+
+/* ─── Page + dock registration ─── */
+onMounted(() => {
+  registerPage({ id: 'aerial', nameKey: 'aerialview.page_aerial', route: '/' });
+  registerPage({ id: 'map', nameKey: 'aerialview.page_map', route: '/map' });
+  registerPage({ id: 'satellite', nameKey: 'aerialview.page_satellite', route: '/satellite' });
+  registerPage({ id: 'chat', nameKey: 'aerialview.page_chat', route: '/chat' });
+  registerPage({ id: 'settings', nameKey: 'aerialview.page_settings', route: '/settings' });
+  registerPage({ id: 'myspace', nameKey: 'aerialview.page_myspace', route: '/myspace' });
+  registerPage({ id: 'extensions', nameKey: 'aerialview.page_extensions', route: '/extensions' });
+
+  registerLeft({
+    id: 'router',
+    render: () => h(DockMenuButton, {
+      icon: 'MENU_ROUTER',
+      titleKey: 'aerialview.pages',
+      pages,
+    }),
+  });
+});
+
+onUnmounted(() => {
+  clear();
+  unregisterPage('aerial');
+  unregisterPage('map');
+  unregisterPage('satellite');
+  unregisterPage('chat');
+  unregisterPage('settings');
+  unregisterPage('myspace');
+  unregisterPage('extensions');
+});
+</script>
+
+<template>
+  <ViewComposer
+    :left-items="leftItems"
+    :right-items="[]"
+    :show-flight="false"
+    :show-camera="false"
+    :show-hud="false"
+    :flight="{ mode: '-', vx: 0, vy: 0, yaw: 0, vz: 0 }"
+    :camera="{ mode: '-', yaw: 0, pitch: 0, roll: 0 }"
+  >
+    <template #background>
+      <div class="settings-page">
+        <!-- Left sidebar -->
+        <nav
+          class="settings-sidebar"
+          :style="{ width: leftWidth + 'px' }"
+        >
+          <div
+            v-for="item in SETTINGS_LIST"
+            :key="item.id"
+            class="settings-sidebar__item"
+            :class="{ 'settings-sidebar__item--active': selectedId === item.id }"
+            @click="selectedId = item.id"
+          >
+            {{ t(item.labelKey) }}
+          </div>
+        </nav>
+
+        <!-- Divider (draggable) -->
+        <div
+          class="settings-divider"
+          @pointerdown="onDividerPointerDown"
+        />
+
+        <!-- Right content area -->
+        <div class="settings-content">
+          <!-- Language -->
+          <div v-if="selectedId === 'language'" class="settings-section">
+            <h2 class="settings-section__title">{{ t('aerialview.settings_language') }}</h2>
+            <div class="settings-row">
+              <select v-model="locale" class="settings-select">
+                <option value="en">English</option>
+                <option value="zh">中文</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Font -->
+          <div v-if="selectedId === 'font'" class="settings-section">
+            <h2 class="settings-section__title">{{ t('aerialview.settings_font') }}</h2>
+
+            <div class="settings-row">
+              <label class="settings-row__label">{{ t('aerialview.settings_font_style') }}</label>
+              <select
+                :value="settings.fontFamily"
+                class="settings-select settings-select--wide"
+                @change="setFontFamily($event.target.value)"
+              >
+                <option
+                  v-for="ff in FONT_FAMILIES"
+                  :key="ff.value"
+                  :value="ff.value"
+                  :style="{ fontFamily: ff.value }"
+                >
+                  {{ ff.label }}
+                </option>
+              </select>
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-row__label">{{ t('aerialview.settings_font_size') }}</label>
+              <select
+                :value="settings.fontSize"
+                class="settings-select settings-select--wide"
+                @change="setFontSize($event.target.value)"
+              >
+                <option
+                  v-for="fs in FONT_SIZES"
+                  :key="fs.value"
+                  :value="fs.value"
+                >
+                  {{ fs.label }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+  </ViewComposer>
+</template>
+
+<style scoped>
+.settings-page {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  pointer-events: auto;
+  background: #ffffff;
+  user-select: none;
+}
+
+/* ─── Left sidebar ─── */
+.settings-sidebar {
+  flex-shrink: 0;
+  padding: 20px 0;
+  overflow-y: auto;
+  background: #f5f5f7;
+}
+
+.settings-sidebar__item {
+  padding: 9px 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #1d1d1f;
+  cursor: pointer;
+  border-radius: 6px;
+  margin: 2px 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.settings-sidebar__item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.settings-sidebar__item--active {
+  background: #007aff;
+  color: #ffffff;
+}
+
+.settings-sidebar__item--active:hover {
+  background: #0066d6;
+}
+
+/* ─── Divider ─── */
+.settings-divider {
+  width: 4px;
+  flex-shrink: 0;
+  background: #e5e5ea;
+  cursor: col-resize;
+  transition: background 0.15s ease;
+}
+
+.settings-divider:hover,
+.settings-divider:active {
+  background: #007aff;
+}
+
+/* ─── Right content ─── */
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  padding: 24px 32px;
+  overflow-y: auto;
+  background: #ffffff;
+}
+
+.settings-section__title {
+  margin: 0 0 20px 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1d1d1f;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.settings-row__label {
+  flex-shrink: 0;
+  width: 100px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6e6e73;
+}
+
+.settings-select {
+  padding: 7px 12px;
+  border-radius: 6px;
+  border: 1px solid #d2d2d7;
+  background: #ffffff;
+  color: #1d1d1f;
+  font-size: 0.875rem;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settings-select--wide {
+  flex: 1;
+}
+
+.settings-select:hover {
+  border-color: #007aff;
+}
+
+.settings-select:focus {
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+}
+</style>
