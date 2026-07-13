@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, h } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import ViewComposer from '@shared/_ViewComposer.vue';
@@ -13,6 +13,8 @@ import { useCameraCommands } from '@shared-composables/useCameraCommands.js';
 import { useFlightPhysics } from '@shared-composables/useFlightPhysics.js';
 import { useCameraPhysics } from '@shared-composables/useCameraPhysics.js';
 import { useDockRegistry } from '@shared-composables/useDockRegistry.js';
+import { usePageRegistry } from '@shared-composables/usePageRegistry.js';
+import DockMenuButton from '@shared/DockMenuButton.vue';
 
 const { t } = useI18n();
 
@@ -51,6 +53,7 @@ const {
 const { computeDesiredEnuMove, applyEnuMove, updateTelemetry: updateFlightTelemetry } = useFlightPhysics();
 const { step: stepCameraPhysics } = useCameraPhysics();
 const { leftItems, rightItems, registerLeft, registerRight, clear } = useDockRegistry();
+const { pages, registerPage, unregisterPage } = usePageRegistry();
 
 const isCollisionFrozen = ref(false);
 const collisionSurfaceNormal = ref(null);
@@ -67,12 +70,13 @@ const takeoffLandingLabel = computed(() => {
   return altitudeGate.isOnGround.value ? t('aerialview.takeoff') : t('aerialview.landing');
 });
 
-function goToMap() {
-  router.push('/map');
-}
-
 function goToChat() {
   router.push('/chat');
+}
+
+function hideAllDisks() {
+  showFlight.value = false;
+  showCamera.value = false;
 }
 
 function toggleTakeoffLanding() {
@@ -266,6 +270,12 @@ onMounted(() => {
   startCameraKeyboard();
   syncCesiumCamera();
 
+  // Register pages for the router menu
+  registerPage({ id: 'aerial', nameKey: 'aerialview.page_aerial', route: '/' });
+  registerPage({ id: 'map', nameKey: 'aerialview.page_map', route: '/map' });
+  registerPage({ id: 'satellite', nameKey: 'aerialview.page_satellite', route: '/satellite' });
+  registerPage({ id: 'chat', nameKey: 'aerialview.page_chat', route: '/chat' });
+
   registerLeft({
     id: 'steer',
     icon: 'MENU_CONTROL_STICK',
@@ -274,10 +284,13 @@ onMounted(() => {
     onClick: toggleFlight,
   });
   registerLeft({
-    id: '2dmap',
-    icon: 'MENU_LOCATION',
-    titleKey: 'aerialview.map2d',
-    onClick: goToMap,
+    id: 'router',
+    render: () => h(DockMenuButton, {
+      icon: 'MENU_ROUTER',
+      titleKey: 'aerialview.pages',
+      pages,
+      onBeforeOpen: hideAllDisks,
+    }),
   });
   registerLeft({
     id: 'takeoff',
@@ -330,6 +343,10 @@ onUnmounted(() => {
   stopCameraKeyboard();
   if (rafId) cancelAnimationFrame(rafId);
   clear();
+  unregisterPage('aerial');
+  unregisterPage('map');
+  unregisterPage('satellite');
+  unregisterPage('chat');
 });
 </script>
 

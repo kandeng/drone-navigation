@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { loadGoogleMaps } from './googleMaps.js';
-import droneIconUrl from '../../asset/drone.svg';
+import droneIconUrl from '../../icons/drone.svg';
 
 const { t } = useI18n();
 

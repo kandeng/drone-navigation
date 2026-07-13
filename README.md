@@ -82,7 +82,7 @@ If Google Photorealistic 3D Tiles fail to load (invalid API key, network error, 
 
 ### Icon configuration (`config/IconConfig.js`)
 
-All SVG icons live in `client/asset/` and are mapped by key in `IconConfig.js` using Vite's `import.meta.glob`. The `ConfigurableIcon.vue` component resolves a key (e.g. `MENU_CONTROL_STICK`) to the corresponding raw SVG markup. To add or swap an icon, update the mapping in `IconConfig.js` — no component changes needed.
+All SVG icons live in `client/icons/` and are mapped by key in `IconConfig.js` using Vite's `import.meta.glob`. The `ConfigurableIcon.vue` component resolves a key (e.g. `MENU_CONTROL_STICK`) to the corresponding raw SVG markup. To add or swap an icon, update the mapping in `IconConfig.js` — no component changes needed.
 
 ## Prerequisite
 

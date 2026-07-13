@@ -1,10 +1,12 @@
 <script setup>
-import { ref, nextTick } from 'vue';
+import { ref, nextTick, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import ConfigurableIcon from '@shared/ConfigurableIcon.vue';
+import { usePageRegistry } from '@shared-composables/usePageRegistry.js';
 
 const { t } = useI18n();
+const { registerPage, unregisterPage } = usePageRegistry();
 
 const router = useRouter();
 
@@ -92,6 +94,20 @@ function scrollToBottom() {
     messagesRef.value.scrollTop = messagesRef.value.scrollHeight;
   }
 }
+
+onMounted(() => {
+  registerPage({ id: 'aerial', nameKey: 'aerialview.page_aerial', route: '/' });
+  registerPage({ id: 'map', nameKey: 'aerialview.page_map', route: '/map' });
+  registerPage({ id: 'satellite', nameKey: 'aerialview.page_satellite', route: '/satellite' });
+  registerPage({ id: 'chat', nameKey: 'aerialview.page_chat', route: '/chat' });
+});
+
+onUnmounted(() => {
+  unregisterPage('aerial');
+  unregisterPage('map');
+  unregisterPage('satellite');
+  unregisterPage('chat');
+});
 </script>
 
 <template>

@@ -7,5 +7,10 @@
   "takeoff": "Takeoff",
   "landing": "Landing",
   "taking_off": "Taking Off...",
-  "landing_in_progress": "Landing..."
+  "landing_in_progress": "Landing...",
+  "pages": "Pages",
+  "page_aerial": "3D Aerial",
+  "page_map": "2D Map",
+  "page_satellite": "Satellite",
+  "page_chat": "Chat"
 }

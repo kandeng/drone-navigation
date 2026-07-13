@@ -61,10 +61,9 @@ function handleClick() {
 }
 
 .dock-btn--active {
-  background: rgba(59, 130, 246, 1);
-  border-color: #2563eb;
-  color: #2563eb;
-  opacity: 0.6;
+  border-width: 2px;
+  border-color: #4ade80;
+  color: #4ade80;
 }
 
 .dock-btn:disabled {

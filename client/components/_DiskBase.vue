@@ -431,7 +431,7 @@ function handleEnd(e) {
 }
 
 .knob-label--flash {
-  color: #facc15 !important;
+  color: #4ade80 !important;
 }
 
 .knob-pointer {
