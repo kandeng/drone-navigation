@@ -93,7 +93,7 @@ onUnmounted(() => {
   >
     <div ref="containerRef" class="street-view-container" />
     <div v-if="error" class="street-view-error">
-      Street View unavailable: {{ error }}
+      {{ $t('streetviewpane.unavailable') }} {{ error }}
     </div>
   </div>
 </template>

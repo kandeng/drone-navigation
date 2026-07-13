@@ -1,8 +1,11 @@
 <script setup>
+import { useI18n } from 'vue-i18n';
 import AppDock from './AppDock.vue';
 import FlightController from './FlightController.vue';
 import GimbalController from './GimbalController.vue';
 import HUD from './HUD.vue';
+
+const { t } = useI18n();
 
 defineProps({
   leftItems: { type: Array, default: () => [] },
@@ -53,7 +56,7 @@ defineEmits([
             @stop="$emit('flightStop')"
             @modeChange="$emit('flightModeChange', $event)"
           />
-          <span class="joystick-label">Flight</span>
+          <span class="joystick-label">{{ t('viewcomposer.flight') }}</span>
         </div>
 
         <div
@@ -69,7 +72,7 @@ defineEmits([
             @stop="$emit('cameraStop')"
             @modeChange="$emit('cameraModeChange', $event)"
           />
-          <span class="joystick-label">Gimbal</span>
+          <span class="joystick-label">{{ t('viewcomposer.gimbal') }}</span>
         </div>
       </div>
     </main>

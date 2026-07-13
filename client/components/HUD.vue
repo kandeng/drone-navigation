@@ -1,7 +1,9 @@
 <script setup>
+import { useI18n } from 'vue-i18n';
 import { useDrone } from '@shared-composables/useDrone.js';
 
 const { drone, gimbal } = useDrone();
+const { t } = useI18n();
 
 defineProps({
   flight: {
@@ -18,39 +20,39 @@ defineProps({
 <template>
   <div class="telemetry">
     <div class="telemetry-row">
-      <span class="telemetry-key">Flight</span>
+      <span class="telemetry-key">{{ t('hud.flight') }}</span>
       <span class="telemetry-value">
-        Mode: {{ flight.mode }}
+        {{ t('hud.mode') }} {{ flight.mode }}
         <template v-if="flight.mode === 'M'">| vx: {{ flight.vx.toFixed(2) }}, vy: {{ flight.vy.toFixed(2) }}</template>
         <template v-if="flight.mode === 'R'">| yaw: {{ flight.yaw.toFixed(2) }}</template>
         <template v-if="flight.mode === 'H'">| vz: {{ flight.vz.toFixed(2) }}</template>
       </span>
     </div>
     <div class="telemetry-row">
-      <span class="telemetry-key">Camera</span>
+      <span class="telemetry-key">{{ t('hud.camera') }}</span>
       <span class="telemetry-value">
-        Mode: {{ camera.mode }}
+        {{ t('hud.mode') }} {{ camera.mode }}
         <template v-if="camera.mode === 'Z'">| yaw: {{ camera.yaw.toFixed(2) }}</template>
         <template v-if="camera.mode === 'Y'">| pitch: {{ camera.pitch.toFixed(2) }}</template>
         <template v-if="camera.mode === 'X'">| roll: {{ camera.roll.toFixed(2) }}</template>
       </span>
     </div>
     <div class="telemetry-row">
-      <span class="telemetry-key">Position</span>
+      <span class="telemetry-key">{{ t('hud.position') }}</span>
       <span class="telemetry-value">
-        lat: {{ drone.lat.toFixed(4) }} | lon: {{ drone.lon.toFixed(4) }} | alt: {{ drone.alt.toFixed(4) }}
+        {{ t('hud.lat') }} {{ drone.lat.toFixed(4) }} | {{ t('hud.lon') }} {{ drone.lon.toFixed(4) }} | {{ t('hud.alt') }} {{ drone.alt.toFixed(4) }}
       </span>
     </div>
     <div class="telemetry-row">
-      <span class="telemetry-key">Direction</span>
+      <span class="telemetry-key">{{ t('hud.direction') }}</span>
       <span class="telemetry-value">
-        Z (yaw): {{ drone.heading.toFixed(1) }} | Y (pitch): {{ (0).toFixed(1) }} | X (roll): {{ (0).toFixed(1) }}
+        {{ t('hud.yaw') }} {{ drone.heading.toFixed(1) }} | {{ t('hud.pitch') }} {{ (0).toFixed(1) }} | {{ t('hud.roll') }} {{ (0).toFixed(1) }}
       </span>
     </div>
     <div class="telemetry-row">
-      <span class="telemetry-key">Gimbal</span>
+      <span class="telemetry-key">{{ t('hud.gimbal') }}</span>
       <span class="telemetry-value">
-        Z (yaw): {{ gimbal.yaw.toFixed(1) }} | Y (pitch): {{ gimbal.pitch.toFixed(1) }} | X (roll): {{ gimbal.roll.toFixed(1) }}
+        {{ t('hud.yaw') }} {{ gimbal.yaw.toFixed(1) }} | {{ t('hud.pitch') }} {{ gimbal.pitch.toFixed(1) }} | {{ t('hud.roll') }} {{ gimbal.roll.toFixed(1) }}
       </span>
     </div>
   </div>

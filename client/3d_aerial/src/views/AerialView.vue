@@ -1,9 +1,11 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import ViewComposer from '@shared/_ViewComposer.vue';
 import CollisionWarning from '@/components/CollisionWarning.vue';
 import StreetViewPane from '@/components/StreetViewPane.vue';
+import LanguageSelector from '@shared/LanguageSelector.vue';
 import { useDrone } from '@shared-composables/useDrone.js';
 import { useAltitudeGate } from '@/composables/useAltitudeGate.js';
 import { useFlightCommands } from '@shared-composables/useFlightCommands.js';
@@ -11,6 +13,8 @@ import { useCameraCommands } from '@shared-composables/useCameraCommands.js';
 import { useFlightPhysics } from '@shared-composables/useFlightPhysics.js';
 import { useCameraPhysics } from '@shared-composables/useCameraPhysics.js';
 import { useDockRegistry } from '@shared-composables/useDockRegistry.js';
+
+const { t } = useI18n();
 
 const router = useRouter();
 
@@ -58,9 +62,9 @@ const cesiumContainer = ref(null);
 const isTakeoffLanding = computed(() => altitudeGate.isTransitioning.value);
 const showStreetView = computed(() => altitudeGate.isOnGround.value);
 const takeoffLandingLabel = computed(() => {
-  if (altitudeGate.isAutoTakingOff.value) return 'Taking Off...';
-  if (altitudeGate.isAutoLanding.value) return 'Landing...';
-  return altitudeGate.isOnGround.value ? 'Takeoff' : 'Landing';
+  if (altitudeGate.isAutoTakingOff.value) return t('aerialview.taking_off');
+  if (altitudeGate.isAutoLanding.value) return t('aerialview.landing_in_progress');
+  return altitudeGate.isOnGround.value ? t('aerialview.takeoff') : t('aerialview.landing');
 });
 
 function goToMap() {
@@ -265,41 +269,47 @@ onMounted(() => {
   registerLeft({
     id: 'steer',
     icon: 'MENU_CONTROL_STICK',
-    title: 'Steer',
+    titleKey: 'aerialview.steer',
     active: showFlight.value,
     onClick: toggleFlight,
   });
   registerLeft({
     id: '2dmap',
     icon: 'MENU_LOCATION',
-    title: '2D Map',
+    titleKey: 'aerialview.map2d',
     onClick: goToMap,
   });
   registerLeft({
     id: 'takeoff',
     icon: 'MENU_TAKEOFF',
-    title: takeoffLandingLabel,
+    titleKey: 'aerialview.takeoff',
     onClick: toggleTakeoffLanding,
   });
 
   registerRight({
     id: 'camera',
     icon: 'MENU_CAMERA',
-    title: 'Camera',
+    titleKey: 'aerialview.camera',
     active: showCamera.value,
     onClick: toggleCamera,
   });
   registerRight({
     id: 'settings',
     icon: 'MENU_SETTINGS',
-    title: 'Configuration',
+    titleKey: 'aerialview.configuration',
     onClick: () => {},
   });
   registerRight({
     id: 'chat',
     icon: 'MENU_CHAT',
-    title: 'Chat',
+    titleKey: 'aerialview.chat',
     onClick: goToChat,
+  });
+  registerRight({
+    id: 'lang',
+    title: '',
+    active: false,
+    render: () => LanguageSelector,
   });
 
   // Sync dock button active states with toggle state

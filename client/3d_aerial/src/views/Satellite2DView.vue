@@ -48,7 +48,7 @@ onMounted(() => {
   registerLeft({
     id: 'steer',
     icon: 'MENU_CONTROL_STICK',
-    title: 'Steer',
+    titleKey: 'aerialview.steer',
     active: false,
     onClick: toggleFlight,
   });

@@ -1,7 +1,10 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { loadGoogleMaps } from './googleMaps.js';
 import droneIconUrl from '../../asset/drone.svg';
+
+const { t } = useI18n();
 
 const props = defineProps({
   lat: { type: Number, required: true },
@@ -236,10 +239,10 @@ watch(() => props.alt, (alt) => {
       }"
     />
     <div v-if="error" class="map-error">
-      <strong>Could not load Google Map</strong>
+      <strong>{{ t('mapview.load_failed') }}</strong>
       <p>{{ error }}</p>
       <p class="map-error-hint">
-        Verify that Maps JavaScript API is enabled for your API key.
+        {{ t('mapview.api_hint') }}
       </p>
     </div>
   </div>

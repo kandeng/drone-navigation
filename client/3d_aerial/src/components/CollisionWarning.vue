@@ -2,7 +2,7 @@
   <transition name="flash">
     <div v-if="visible" class="collision-warning">
       <span class="collision-warning__icon">⚠</span>
-      <span class="collision-warning__text">COLLISION WARNING: MOVEMENT RESTRICTED</span>
+      <span class="collision-warning__text">{{ $t('collisionwarning.warning') }}</span>
       <span class="collision-warning__icon">⚠</span>
     </div>
   </transition>

@@ -9,6 +9,8 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
       '@shared': resolve(__dirname, '../components'),
       '@shared-composables': resolve(__dirname, '../composables'),
+      'vue-i18n': resolve(__dirname, 'node_modules/vue-i18n/dist/vue-i18n.esm-bundler.js'),
+      'vue': resolve(__dirname, 'node_modules/vue/dist/vue.esm-bundler.js'),
     },
   },
   server: {

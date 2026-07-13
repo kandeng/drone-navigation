@@ -1,0 +1,11 @@
+{
+  "steer": "Steer",
+  "map2d": "2D Map",
+  "camera": "Camera",
+  "configuration": "Configuration",
+  "chat": "Chat",
+  "takeoff": "Takeoff",
+  "landing": "Landing",
+  "taking_off": "Taking Off...",
+  "landing_in_progress": "Landing..."
+}

@@ -1,0 +1,15 @@
+{
+  "flight_plan_1": "飞行计划 #1",
+  "mission_control": "任务控制",
+  "support": "技术支持",
+  "conversations": "对话列表",
+  "online": "在线",
+  "back_to_dashboard": "返回仪表盘",
+  "type_a_message": "输入消息...",
+  "attach_file": "附加文件",
+  "send": "发送",
+  "connected": "已连接到无人机控制助手。",
+  "patrol_request": "设置体育场周围的巡逻路线。",
+  "patrol_response": "巡逻路线已配置。预计循环时间为 4 分钟。",
+  "acknowledged": "已确认。正在更新飞行参数。"
+}

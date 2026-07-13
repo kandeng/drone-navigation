@@ -1,15 +1,24 @@
 <script setup>
+import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import ConfigurableIcon from './ConfigurableIcon.vue';
 
 const props = defineProps({
   icon: { type: String, required: true },
   title: { type: String, default: '' },
+  titleKey: { type: String, default: '' },
   active: { type: Boolean, default: false },
   disabled: { type: Boolean, default: false },
   size: { type: Number, default: 32 },
 });
 
 const emit = defineEmits(['click']);
+const { t } = useI18n();
+
+const resolvedTitle = computed(() => {
+  if (props.titleKey) return t(props.titleKey);
+  return props.title;
+});
 
 function handleClick() {
   if (props.disabled) return;
@@ -21,7 +30,7 @@ function handleClick() {
   <button
     class="dock-btn"
     :class="{ 'dock-btn--active': active }"
-    :title="title"
+    :title="resolvedTitle"
     :disabled="disabled"
     @click="handleClick"
   >

@@ -1,0 +1,11 @@
+{
+  "steer": "操控",
+  "map2d": "2D 地图",
+  "camera": "相机",
+  "configuration": "配置",
+  "chat": "聊天",
+  "takeoff": "起飞",
+  "landing": "降落",
+  "taking_off": "起飞中...",
+  "landing_in_progress": "降落中..."
+}

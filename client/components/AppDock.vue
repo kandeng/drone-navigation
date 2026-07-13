@@ -30,15 +30,20 @@ function handleItemClick(item) {
     :class="position === 'left' ? 'app-dock--left' : 'app-dock--right'"
   >
     <div class="app-dock__inner">
-      <DockButton
-        v-for="item in items"
-        :key="item.id"
-        :icon="item.icon"
-        :title="item.title"
-        :active="item.active"
-        :disabled="item.disabled"
-        @click="handleItemClick(item)"
-      />
+      <template v-for="item in items" :key="item.id">
+        <!-- Custom component rendering (e.g., LanguageSelector) -->
+        <component v-if="typeof item.render === 'function'" :is="item.render()" />
+        <!-- Standard dock button -->
+        <DockButton
+          v-else
+          :icon="item.icon"
+          :title="item.title"
+          :title-key="item.titleKey"
+          :active="item.active"
+          :disabled="item.disabled"
+          @click="handleItemClick(item)"
+        />
+      </template>
     </div>
   </aside>
 </template>

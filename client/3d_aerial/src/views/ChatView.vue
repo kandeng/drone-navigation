@@ -1,33 +1,36 @@
 <script setup>
 import { ref, nextTick } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import ConfigurableIcon from '@shared/ConfigurableIcon.vue';
+
+const { t } = useI18n();
 
 const router = useRouter();
 
 const sessions = ref([
-  { id: 1, title: 'Flight Plan #1', preview: 'Adjust altitude to 120m', active: true },
-  { id: 2, title: 'Mission Control', preview: 'Route confirmed', active: false },
-  { id: 3, title: 'Support', preview: 'Camera gimbal calibration', active: false },
+  { id: 1, title: t('chatview.flight_plan_1'), preview: 'Adjust altitude to 120m', active: true },
+  { id: 2, title: t('chatview.mission_control'), preview: 'Route confirmed', active: false },
+  { id: 3, title: t('chatview.support'), preview: 'Camera gimbal calibration', active: false },
 ]);
 
 const messages = ref([
   {
     id: 1,
     sender: 'system',
-    text: 'Connected to drone control assistant.',
+    text: t('chatview.connected'),
     time: '10:00 AM',
   },
   {
     id: 2,
     sender: 'user',
-    text: 'Set a patrol route around the stadium.',
+    text: t('chatview.patrol_request'),
     time: '10:02 AM',
   },
   {
     id: 3,
     sender: 'bot',
-    text: 'Patrol route configured. Estimated loop time is 4 minutes.',
+    text: t('chatview.patrol_response'),
     time: '10:02 AM',
   },
   {
@@ -70,7 +73,7 @@ async function sendMessage() {
     messages.value.push({
       id: Date.now() + 1,
       sender: 'bot',
-      text: 'Acknowledged. Updating flight parameters.',
+      text: t('chatview.acknowledged'),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     });
     nextTick().then(scrollToBottom);
@@ -96,10 +99,10 @@ function scrollToBottom() {
     <!-- Left navigation / history panel -->
     <aside class="chat-sidebar">
       <div class="chat-sidebar-header">
-        <button class="icon-btn" title="Back to dashboard" @click="goBack">
+        <button class="icon-btn" :title="t('chatview.back_to_dashboard')" @click="goBack">
           <ConfigurableIcon name="CHAT_BACK" :size="22" />
         </button>
-        <h2 class="chat-sidebar-title">Conversations</h2>
+        <h2 class="chat-sidebar-title">{{ t('chatview.conversations') }}</h2>
       </div>
 
       <div class="sessions">
@@ -119,8 +122,8 @@ function scrollToBottom() {
     <!-- Main chat area -->
     <main class="chat-main">
       <header class="chat-header">
-        <h1 class="chat-header-title">Mission Control</h1>
-        <span class="chat-status">Online</span>
+        <h1 class="chat-header-title">{{ t('chatview.mission_control') }}</h1>
+        <span class="chat-status">{{ t('chatview.online') }}</span>
       </header>
 
       <div ref="messagesRef" class="messages">
@@ -144,17 +147,17 @@ function scrollToBottom() {
       </div>
 
       <footer class="chat-inputbar">
-        <button class="icon-btn" title="Attach file">
+        <button class="icon-btn" :title="t('chatview.attach_file')">
           <ConfigurableIcon name="CHAT_ATTACHMENT" :size="22" />
         </button>
         <textarea
           v-model="input"
           class="chat-input"
-          placeholder="Type a message..."
+          :placeholder="t('chatview.type_a_message')"
           rows="1"
           @keydown="handleKeydown"
         />
-        <button class="send-btn" title="Send" @click="sendMessage">
+        <button class="send-btn" :title="t('chatview.send')" @click="sendMessage">
           <ConfigurableIcon name="CHAT_SEND" :size="18" />
         </button>
       </footer>
