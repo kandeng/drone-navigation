@@ -12,19 +12,16 @@ export function useFlightPhysics() {
 
   function computeDesiredEnuMove(dt, allowAltitude = true, options = {}) {
     if (activeFlightMode.value === 'M') {
-      const headingRad = (drone.heading * Math.PI) / 180;
+      // World-aligned movement: W=north, S=south, A=west, D=east
       const latRad = (drone.lat * Math.PI) / 180;
       const metersPerDegLat = 111320;
       const metersPerDegLon = metersPerDegLat * Math.cos(latRad);
 
-      const forwardDeg = flightCmd.vy * MOVEMENT_SPEED * dt;
-      const rightDeg = flightCmd.vx * MOVEMENT_SPEED * dt;
+      const dNorthDeg = flightCmd.vy * MOVEMENT_SPEED * dt;
+      const dEastDeg = flightCmd.vx * MOVEMENT_SPEED * dt;
 
-      const dLatDeg = forwardDeg * Math.cos(headingRad) - rightDeg * Math.sin(headingRad);
-      const dLonDeg = forwardDeg * Math.sin(headingRad) + rightDeg * Math.cos(headingRad);
-
-      const dNorthM = dLatDeg * metersPerDegLat;
-      const dEastM = dLonDeg * metersPerDegLon;
+      const dNorthM = dNorthDeg * metersPerDegLat;
+      const dEastM = dEastDeg * metersPerDegLon;
 
       return { x: dEastM, y: dNorthM, z: 0 };
     }

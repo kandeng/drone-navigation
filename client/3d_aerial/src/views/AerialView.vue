@@ -283,6 +283,10 @@ function updateDroneState() {
   if (showFlight.value) {
     applyEnuMove(enuMove);
     updateFlightTelemetry(allowAltitude);
+    // R-mode: rotate drone heading (3D view rotates accordingly)
+    if (activeFlightMode.value === 'R') {
+      drone.heading += flightCmd.yaw * 60.0 * dt;
+    }
   }
 
   if (altitudeGate.isOnGround.value) {
