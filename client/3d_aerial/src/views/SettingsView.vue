@@ -10,7 +10,7 @@ import { useAppSettings } from '@shared-composables/useAppSettings.js';
 const { t, locale } = useI18n();
 const { leftItems, registerLeft, clear } = useDockRegistry();
 const { pages, registerPage, unregisterPage } = usePageRegistry();
-const { settings, setFontFamily, setFontSize, setTakeoffAltitude, setSafetyBuffer, setDefaultLat, setDefaultLon, setDefaultAlt } = useAppSettings();
+const { settings, setFontFamily, setFontSize, setTakeoffAltitude, setSafetyBuffer, setDefaultLat, setDefaultLon, setDefaultAlt, setDefaultYaw, setDefaultPitch, setDefaultRoll } = useAppSettings();
 
 /* ─── Left-column width drag ─── */
 const LEFT_MIN = 180;
@@ -262,6 +262,45 @@ onUnmounted(() => {
                 max="10000"
                 step="10"
                 @change="setDefaultAlt($event.target.value)"
+              />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-row__label">{{ t('aerialview.settings_default_yaw') }}</label>
+              <input
+                type="number"
+                class="settings-input settings-input--narrow"
+                :value="settings.defaultYaw"
+                min="0"
+                max="360"
+                step="1"
+                @change="setDefaultYaw($event.target.value)"
+              />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-row__label">{{ t('aerialview.settings_default_pitch') }}</label>
+              <input
+                type="number"
+                class="settings-input settings-input--narrow"
+                :value="settings.defaultPitch"
+                min="-90"
+                max="90"
+                step="1"
+                @change="setDefaultPitch($event.target.value)"
+              />
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-row__label">{{ t('aerialview.settings_default_roll') }}</label>
+              <input
+                type="number"
+                class="settings-input settings-input--narrow"
+                :value="settings.defaultRoll"
+                min="-90"
+                max="90"
+                step="1"
+                @change="setDefaultRoll($event.target.value)"
               />
             </div>
           </div>

@@ -14,6 +14,9 @@ const defaults = {
   defaultLat: 37.4286,
   defaultLon: -122.1699,
   defaultAlt: 150,
+  defaultYaw: 0,
+  defaultPitch: 0,
+  defaultRoll: 0,
 };
 
 /** Hydrate from localStorage, falling back to defaults. */
@@ -74,6 +77,21 @@ export function useAppSettings() {
     state.defaultAlt = n;
   }
 
+  function setDefaultYaw(val) {
+    const n = Number(val) || 0;
+    state.defaultYaw = ((n % 360) + 360) % 360;
+  }
+
+  function setDefaultPitch(val) {
+    const n = Number(val) || 0;
+    state.defaultPitch = Math.max(-90, Math.min(90, n));
+  }
+
+  function setDefaultRoll(val) {
+    const n = Number(val) || 0;
+    state.defaultRoll = Math.max(-90, Math.min(90, n));
+  }
+
   return {
     settings: state,
     setFontFamily,
@@ -83,5 +101,8 @@ export function useAppSettings() {
     setDefaultLat,
     setDefaultLon,
     setDefaultAlt,
+    setDefaultYaw,
+    setDefaultPitch,
+    setDefaultRoll,
   };
 }

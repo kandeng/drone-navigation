@@ -23,7 +23,7 @@ const { drone, gimbal } = useDrone();
 const altitudeGate = useAltitudeGate(drone);
 
 const isLowAltitude = computed(() => (drone.alt - altitudeGate.surfaceAlt.value) < 10);
-const isHighAltitude = computed(() => (drone.alt - altitudeGate.surfaceAlt.value) > 100);
+const isHighAltitude = computed(() => (drone.alt - altitudeGate.surfaceAlt.value) >= 10);
 
 const {
   flight,

@@ -63,9 +63,11 @@ export function loadGoogleMaps() {
 /**
  * Convert a Cesium-style heading (radians clockwise from north) to a Google
  * Street View heading (degrees clockwise from north, 0..360).
+ * Applies a 180° offset to compensate for the opposite yaw convention between
+ * Google Photorealistic 3D Tiles (aerial) and Street View panorama imagery.
  */
 export function cesiumHeadingToStreetView(headingRad) {
-  let deg = (headingRad * 180) / Math.PI;
+  let deg = (headingRad * 180) / Math.PI + 180;
   deg = ((deg % 360) + 360) % 360;
   return deg;
 }

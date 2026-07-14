@@ -64,6 +64,10 @@ watch(
   () => {
     if (streetView.value) {
       streetView.value.setPosition(props.lat, props.lon);
+      // Re-assert heading after setPosition to prevent Google Street View
+      // from snapping to the nearest road link direction (which can be ~180° off).
+      const pitchOffsetRad = (altitudeToStreetViewPitchOffset(props.altitude) * Math.PI) / 180;
+      streetView.value.setPov(props.heading, props.pitch + pitchOffsetRad);
     }
   }
 );

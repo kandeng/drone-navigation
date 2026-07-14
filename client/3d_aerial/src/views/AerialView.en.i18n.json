@@ -32,5 +32,8 @@
   "settings_safety_buffer": "Safety Buffer (m)",
   "settings_default_lat": "Initial Latitude",
   "settings_default_lon": "Initial Longitude",
-  "settings_default_alt": "Initial Altitude (m)"
+  "settings_default_alt": "Initial Altitude (m)",
+  "settings_default_yaw": "Initial Z (yaw)",
+  "settings_default_pitch": "Initial Y (pitch)",
+  "settings_default_roll": "Initial X (roll)"
 }

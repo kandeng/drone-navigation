@@ -32,5 +32,8 @@
   "settings_safety_buffer": "安全缓冲区 (米)",
   "settings_default_lat": "初始纬度",
   "settings_default_lon": "初始经度",
-  "settings_default_alt": "初始高度 (米)"
+  "settings_default_alt": "初始高度 (米)",
+  "settings_default_yaw": "初始 Z (偏航)",
+  "settings_default_pitch": "初始 Y (俯仰)",
+  "settings_default_roll": "初始 X (翻滚)"
 }

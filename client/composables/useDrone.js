@@ -7,13 +7,13 @@ const drone = reactive({
   lat: settings.defaultLat,
   lon: settings.defaultLon,
   alt: settings.defaultAlt,
-  heading: 0.0,
+  heading: settings.defaultYaw,
 });
 
 const gimbal = reactive({
   yaw: 0.0,
-  pitch: -20.0,
-  roll: 0.0,
+  pitch: settings.defaultPitch,
+  roll: settings.defaultRoll,
 });
 
 export function useDrone() {
