@@ -5,17 +5,23 @@ A multi-view drone navigation dashboard with a shared component architecture.
 ## Architecture
 
 ```
-client/
-├── 3d_aerial/              # Vite + Vue 3 host app (pages, router, Cesium)
-│   └── src/
-│       ├── views/          # Page components (AerialView, Map2DView, Satellite2DView, ChatView)
-│       ├── components/     # App-specific components (CollisionWarning, StreetViewPane)
-│       ├── composables/    # App-specific composables (useAltitudeGate)
-│       ├── config/         # IconConfig.js — centralized SVG icon registry
-│       ├── router/         # Vue Router routes
-│       ├── cesium-main.js  # Cesium viewer init, Google 3D Tiles, camera sync
-│       └── dronePhysics.js # Legacy keyboard-driven drone physics (WASD + arrows)
-├── components/             # Shared UI components used by all pages
+client/                     # Vite project root
+├── index.html              # Entry point (Cesium CDN, splash overlay, Vue mount)
+├── vite.config.js          # Vite config with @shared and @shared-composables aliases
+├── style.css               # Global styles (splash screen, layout)
+├── src/                    # Application source code
+│   ├── App.vue             # Root Vue component
+│   ├── main.js             # Vue app initialization
+│   ├── router/             # Vue Router routes
+│   ├── views/              # Page components (AerialView, Map2DView, Satellite2DView, ChatView, SettingsView)
+│   ├── components/         # App-specific components (CollisionWarning, StreetViewPane)
+│   ├── composables/        # App-specific composables (useAltitudeGate)
+│   ├── config/             # IconConfig.js — centralized SVG icon registry
+│   ├── 2d_map/             # Google Maps 2D map module (MapView.vue)
+│   ├── 3d_street/          # Google Street View panorama module (streetView.js)
+│   ├── cesium-main.js      # Cesium viewer init, Google 3D Tiles, camera sync
+│   └── dronePhysics.js     # Keyboard-driven drone physics (WASD + arrows)
+├── components/             # Shared UI components (@shared alias)
 │   ├── _ViewComposer.vue
 │   ├── _DiskBase.vue
 │   ├── AppDock.vue
@@ -24,17 +30,18 @@ client/
 │   ├── GimbalController.vue
 │   ├── HUD.vue
 │   └── ConfigurableIcon.vue
-├── composables/            # Shared reactive state and physics
+├── composables/            # Shared reactive state (@shared-composables alias)
 │   ├── useDrone.js
 │   ├── useFlightCommands.js
 │   ├── useFlightPhysics.js
 │   ├── useCameraCommands.js
 │   ├── useCameraPhysics.js
-│   └── useDockRegistry.js
-├── 2d_map/                 # Google Maps 2D map module
-├── 3d_street/              # Google Street View panorama module
-├── ai_chat/                # AI chat module (placeholder)
-└── icons/                  # SVG icons used by ConfigurableIcon
+│   ├── useDockRegistry.js
+│   └── useAppSettings.js
+├── public/                 # Static assets (splash videos, PWA install page)
+├── icons/                  # SVG icons used by ConfigurableIcon
+├── assets/                 # Shared media and documents
+└── config.json             # API keys (gitignored)
 ```
 
 Pages are composed with `_ViewComposer.vue`, which provides:
@@ -72,7 +79,7 @@ A hysteresis-based altitude gate manages ground/air state:
 
 Flight controls are locked during the transition. When the drone is on the ground, the Cesium globe is hidden and a Google Street View panorama (`StreetViewPane.vue`) is shown instead, synced to drone position, heading, and gimbal angles.
 
-### Street View ground mode (`3d_street/`)
+### Street View ground mode (`src/3d_street/`)
 
 Dynamically loads the Google Maps JavaScript API and creates a `StreetViewPanorama` inside `StreetViewPane.vue`. The panorama's position, heading, pitch, and zoom are kept in sync with the drone state. Zoom is mapped from altitude (0 m → wide FOV, 15 m → narrow elevated FOV) to give an immersive ground-level feel.
 
@@ -153,7 +160,7 @@ Do not commit this file; it is already excluded by `.gitignore`.
 ## Running the app
 
 ```bash
-cd 3d_aerial
+cd client
 npm install
 npm run dev
 ```
@@ -164,6 +171,7 @@ Open http://localhost:5173.
 - `/map` — 2D Google Map centered on the drone.
 - `/satellite` — 2D Google Satellite view.
 - `/chat` — Mission-control chat interface.
+- `/settings` — App settings (language, font, flight configuration).
 
 Use the left and right sidebar docks to toggle disks, navigate between pages, take off/land, or open chat.
 
@@ -190,9 +198,11 @@ Items are reactive arrays, so registration/unregistration is reflected immediate
 ## Build
 
 ```bash
-cd 3d_aerial
+cd client
 npm run build
 ```
+
+The output goes to `client/dist/`.
 
 ### Adding more Google APIs later
 

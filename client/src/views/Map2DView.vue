@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, onUnmounted, h } from 'vue';
 import ViewComposer from '@shared/_ViewComposer.vue';
-import { MapView } from '../../../2d_map/index.js';
+import { MapView } from '@/2d_map/index.js';
 import { useDrone } from '@shared-composables/useDrone.js';
 import { useFlightCommands } from '@shared-composables/useFlightCommands.js';
 import { useFlightPhysics } from '@shared-composables/useFlightPhysics.js';
@@ -106,7 +106,7 @@ onUnmounted(() => {
     <template #background>
       <MapView
         class="view-composer__background"
-        map-type-id="satellite"
+        map-type-id="roadmap"
         :lat="drone.lat"
         :lon="drone.lon"
         :alt="drone.alt"

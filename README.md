@@ -15,7 +15,7 @@ drone-navigation/
 ### Client
 
 ```bash
-cd client/3d_aerial
+cd client
 npm install
 npm run dev
 ```
@@ -26,4 +26,4 @@ For detailed setup instructions (API keys, configuration, architecture), see [cl
 
 ## License
 
-MIT
+See [LICENSE](LICENSE) for the full End-User License Agreement.

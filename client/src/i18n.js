@@ -14,7 +14,11 @@ import { createI18n } from 'vue-i18n';
  */
 
 // Discover all translation JSON files anywhere under client/.
-const modules = import.meta.glob('../../**/*.i18n.json', { eager: true });
+// Two patterns: one for src/ (views, components, 2d_map) and one for shared components/.
+const modules = import.meta.glob(
+  ['./**/*.i18n.json', '../components/**/*.i18n.json'],
+  { eager: true }
+);
 
 /**
  * Build the aggregated messages object from discovered modules.

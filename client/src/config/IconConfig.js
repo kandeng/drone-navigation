@@ -3,45 +3,45 @@
 // via Vite's import.meta.glob. Add or update keys here to change the icons
 // used across the application without touching components.
 
-const svgModules = import.meta.glob('../../../icons/*.svg', {
+const svgModules = import.meta.glob('../../icons/*.svg', {
   query: '?raw',
   import: 'default',
   eager: true,
 });
 
-const pngModules = import.meta.glob('../../../icons/*.png', {
+const pngModules = import.meta.glob('../../icons/*.png', {
   import: 'default',
   eager: true,
 });
 
 export const IconMap = {
   // Sidebar menu icons
-  MENU_CONTROL_STICK: '../../../icons/steer.svg',
-  MENU_LOCATION: '../../../icons/location.svg',
-  MENU_3D_VIEW: '../../../icons/drone.svg',
-  MENU_SETTINGS: '../../../icons/settings.svg',
-  MENU_CAMERA: '../../../icons/camera.svg',
-  MENU_CHAT: '../../../icons/chat.svg',
-  MENU_TAKEOFF: '../../../icons/takeoff.svg',
-  MENU_LANDING: '../../../icons/landing.svg',
-  MENU_ROUTER: '../../../icons/router.svg',
-  MENU_RECORDER: '../../../icons/recorder.svg',
+  MENU_CONTROL_STICK: '../../icons/steer.svg',
+  MENU_LOCATION: '../../icons/location.svg',
+  MENU_3D_VIEW: '../../icons/drone.svg',
+  MENU_SETTINGS: '../../icons/settings.svg',
+  MENU_CAMERA: '../../icons/camera.svg',
+  MENU_CHAT: '../../icons/chat.svg',
+  MENU_TAKEOFF: '../../icons/takeoff.svg',
+  MENU_LANDING: '../../icons/landing.svg',
+  MENU_ROUTER: '../../icons/router.svg',
+  MENU_RECORDER: '../../icons/recorder.svg',
   // Legacy alias, kept for backward compatibility
-  MENU_GAMEPAD: '../../../icons/control-stick.svg',
+  MENU_GAMEPAD: '../../icons/control-stick.svg',
 
   // Joystick / flight control glyphs
-  FLIGHT_MOVE: '../../../icons/flight-move.svg',
-  FLIGHT_ROTATE: '../../../icons/flight-rotate.svg',
-  FLIGHT_HEIGHT: '../../../icons/flight-height.svg',
+  FLIGHT_MOVE: '../../icons/flight-move.svg',
+  FLIGHT_ROTATE: '../../icons/flight-rotate.svg',
+  FLIGHT_HEIGHT: '../../icons/flight-height.svg',
 
   // Camera / gimbal control glyphs
-  CAMERA_ROTATE: '../../../icons/camera-rotate.svg',
-  CAMERA_PITCH: '../../../icons/pitch-indicator.svg',
+  CAMERA_ROTATE: '../../icons/camera-rotate.svg',
+  CAMERA_PITCH: '../../icons/pitch-indicator.svg',
 
   // Chat icons
-  CHAT_BACK: '../../../icons/back.svg',
-  CHAT_SEND: '../../../icons/send.svg',
-  CHAT_ATTACHMENT: '../../../icons/attachment.svg',
+  CHAT_BACK: '../../icons/back.svg',
+  CHAT_SEND: '../../icons/send.svg',
+  CHAT_ATTACHMENT: '../../icons/attachment.svg',
 };
 
 /**

@@ -12,7 +12,7 @@ dist/
 build/
 
 # Splash video clips (large files, served from CDN in production)
-client/3d_aerial/public/splash/*.mp4
+client/public/splash/*.mp4
 client/assets/media/*.mp4
 
 # Environment files

@@ -1,5 +1,5 @@
 {
-  "name": "3d-aerial-dashboard",
+  "name": "drone-navigation-client",
   "version": "1.0.0",
   "description": "Vue 3 desktop drone control dashboard with dual joysticks and chat",
   "type": "module",

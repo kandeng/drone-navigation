@@ -4,7 +4,7 @@ import {
   createStreetView,
   altitudeToStreetViewZoom,
   altitudeToStreetViewPitchOffset,
-} from '../../../3d_street/src/streetView.js';
+} from '@/3d_street/streetView.js';
 
 const props = defineProps({
   lat: { type: Number, default: 0 },

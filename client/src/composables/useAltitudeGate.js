@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
-import { useAppSettings } from '../../../composables/useAppSettings.js';
-import { prewarmStreetView } from '../../../3d_street/src/streetView.js';
+import { useAppSettings } from '@shared-composables/useAppSettings.js';
+import { prewarmStreetView } from '@/3d_street/streetView.js';
 
 /* global Cesium */
 

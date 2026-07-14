@@ -1,5 +1,5 @@
-import config from '../../config.json';
-import { useAppSettings } from '../../composables/useAppSettings.js';
+import config from '../config.json';
+import { useAppSettings } from '@shared-composables/useAppSettings.js';
 
 Cesium.GoogleMaps.defaultApiKey = config.googleApiKey;
 Cesium.Ion.defaultAccessToken = config.cesiumIonToken;
