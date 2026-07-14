@@ -32,8 +32,24 @@ async function loadArena() {
     const { settings } = useAppSettings();
     const targetLatitude = settings.defaultLat;
     const targetLongitude = settings.defaultLon;
-    const targetHeight = settings.defaultAlt; // Default altitude from settings
+    const targetHeight = settings.defaultAlt;
     const initialPosition = Cesium.Cartesian3.fromDegrees(targetLongitude, targetLatitude, targetHeight);
+
+    // Apply default direction from settings (yaw → heading, pitch, roll)
+    const initialHeading = Cesium.Math.toRadians(settings.defaultYaw);
+    const initialPitch = Cesium.Math.toRadians(settings.defaultPitch);
+    const initialRoll = Cesium.Math.toRadians(settings.defaultRoll);
+
+    // Position the camera at the default location and direction immediately
+    // so that tiles for the correct viewport begin downloading.
+    viewer.camera.setView({
+        destination: initialPosition,
+        orientation: {
+            heading: initialHeading,
+            pitch: initialPitch,
+            roll: initialRoll
+        }
+    });
 
     try {
         // Attempt to load Google Photorealistic 3D Tiles.
@@ -41,7 +57,7 @@ async function loadArena() {
         // a Cesium ion access token that is not expired.
         googleTileset = await Cesium.createGooglePhotorealistic3DTileset();
         viewer.scene.primitives.add(googleTileset);
-        console.log('[Cesium] Google Photorealistic 3D Tileset loaded.');
+        console.log('[Cesium] Google Photorealistic 3D Tileset created.');
     } catch (error) {
         console.warn('[Cesium] Google Photorealistic 3D Tileset failed to load:', error);
         console.warn('[Cesium] Falling back to Cesium World Terrain + OSM Buildings.');
@@ -68,21 +84,46 @@ async function loadArena() {
         }
     }
 
-    // Position the camera over downtown San Francisco.
-    viewer.camera.setView({
-        destination: initialPosition,
-        orientation: {
-            heading: Cesium.Math.toRadians(0.0),
-            pitch: Cesium.Math.toRadians(-20.0), // Tilt downwards slightly
-            roll: 0.0
-        }
-    });
-
     if (typeof initDroneControl === 'function') {
         initDroneControl(initialPosition);
     }
 
-    // Signal splash screen that Cesium 3D scene is ready
+    // ── Wait for actual tile downloads to settle ──
+    // tileLoadProgressEvent fires with the number of tiles currently loading.
+    // We wait until the queue reaches 0 (all visible tiles downloaded).
+    await new Promise((resolve) => {
+        let settled = false;
+
+        function onProgress(queueLength) {
+            if (queueLength === 0 && !settled) {
+                settled = true;
+                viewer.scene.tileLoadProgressEvent.removeEventListener(onProgress);
+                console.log('[Cesium] All visible tiles downloaded.');
+                resolve();
+            }
+        }
+
+        viewer.scene.tileLoadProgressEvent.addEventListener(onProgress);
+
+        // If the queue is already 0 (e.g., cached), resolve immediately
+        // after one frame to give Cesium a chance to start loading.
+        setTimeout(() => {
+            if (!settled) {
+                // Check once more after a brief delay
+                setTimeout(() => {
+                    if (!settled) {
+                        // Force resolve after 15s even if tiles never finish
+                        settled = true;
+                        viewer.scene.tileLoadProgressEvent.removeEventListener(onProgress);
+                        console.warn('[Cesium] Tile load timeout (15s), proceeding.');
+                        resolve();
+                    }
+                }, 15000);
+            }
+        }, 500);
+    });
+
+    // Signal splash screen that Cesium 3D scene is ready with tiles loaded
     window.dispatchEvent(new CustomEvent('cesiumReady'));
 }
 

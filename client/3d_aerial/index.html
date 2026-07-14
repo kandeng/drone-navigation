@@ -6,6 +6,10 @@
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.125/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.125/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <!-- Preload splash video clips to avoid black screen between transitions -->
+    <link rel="preload" href="/splash/vantor_world3d.mp4" as="video" type="video/mp4">
+    <link rel="preload" href="/splash/kevtoe_worldview.mp4" as="video" type="video/mp4">
+    <link rel="preload" href="/splash/drone_earth_milkway_continent.mp4" as="video" type="video/mp4">
 </head>
 <body>
     <div id="cesiumContainer"></div>
@@ -15,8 +19,14 @@
 
     <!-- Splash screen: full-screen overlay with sequential video clips -->
     <div id="splash-overlay">
-        <video id="splash-video" muted playsinline autoplay></video>
+        <video id="splash-video" muted playsinline autoplay preload="auto"></video>
         <div id="splash-progress"></div>
+        <div id="splash-bottom">
+            <p id="splash-slogan"></p>
+            <div id="splash-qr">
+                <img id="splash-qr-img" alt="Download PWA" />
+            </div>
+        </div>
     </div>
 
     <script src="/splash.js"></script>
