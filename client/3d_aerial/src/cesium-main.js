@@ -81,6 +81,9 @@ async function loadArena() {
     if (typeof initDroneControl === 'function') {
         initDroneControl(initialPosition);
     }
+
+    // Signal splash screen that Cesium 3D scene is ready
+    window.dispatchEvent(new CustomEvent('cesiumReady'));
 }
 
 /**

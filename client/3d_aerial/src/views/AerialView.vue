@@ -81,7 +81,11 @@ const isPreCaching = computed(() => {
   return p === PHASES.PRE_TAKEOFF || p === PHASES.PRE_LANDING;
 });
 const showStreetView = computed(() => (drone.alt - altitudeGate.surfaceAlt.value) < ASCEND_THRESHOLD);
-const shouldPrewarmSV = computed(() => (drone.alt - altitudeGate.surfaceAlt.value) < 20);
+const shouldPrewarmSV = computed(() => {
+  const phase = altitudeGate.flightPhase.value;
+  if (phase === PHASES.PRE_LANDING || phase === PHASES.DESCENDING) return true;
+  return (drone.alt - altitudeGate.surfaceAlt.value) < 20;
+});
 const isTransitioning = computed(() => {
   const rel = drone.alt - altitudeGate.surfaceAlt.value;
   return rel >= DESCEND_THRESHOLD && rel < ASCEND_THRESHOLD;
