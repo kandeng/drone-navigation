@@ -249,13 +249,12 @@ async function searchNearbyPois(latLng) {
     return;
   }
   try {
+    const circle = new mapsApi.Circle({
+      center: latLng,
+      radius: 500, // meters
+    });
     const request = {
-      locationRestriction: {
-        circle: {
-          center: { lat: latLng.lat(), lng: latLng.lng() },
-          radius: 500, // meters
-        },
-      },
+      locationRestriction: circle,
       fields: ['id', 'displayName', 'location'],
     };
     console.log('[MapView] calling Place.searchNearby', request);
