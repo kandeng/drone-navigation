@@ -1,5 +1,6 @@
 <script setup>
 import DockButton from './DockButton.vue';
+import { useWaypointPicker } from '@shared-composables/useWaypointPicker.js';
 
 const props = defineProps({
   position: {
@@ -15,8 +16,13 @@ const props = defineProps({
 
 const emit = defineEmits(['itemClick']);
 
+const { stopPicking, closePanel } = useWaypointPicker();
+
 function handleItemClick(item) {
   if (item.disabled) return;
+  // Any sidebar interaction cancels waypoint map-picking mode and hides the waypoint panel.
+  stopPicking();
+  closePanel();
   if (typeof item.onClick === 'function') {
     item.onClick();
   }

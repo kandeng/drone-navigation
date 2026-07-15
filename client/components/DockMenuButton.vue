@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import DockButton from './DockButton.vue';
 import PageMenu from './PageMenu.vue';
+import { useWaypointPicker } from '@shared-composables/useWaypointPicker.js';
 
 const props = defineProps({
   icon: { type: String, required: true },
@@ -16,9 +17,16 @@ const emit = defineEmits(['navigate']);
 const isOpen = ref(false);
 const wrapperRef = ref(null);
 
+const { stopPicking, closePanel } = useWaypointPicker();
+
 function toggleMenu() {
-  if (!isOpen.value && props.onBeforeOpen) {
-    props.onBeforeOpen();
+  if (!isOpen.value) {
+    if (props.onBeforeOpen) {
+      props.onBeforeOpen();
+    }
+    // Opening the page menu cancels waypoint picking and hides the waypoint panel.
+    stopPicking();
+    closePanel();
   }
   isOpen.value = !isOpen.value;
 }

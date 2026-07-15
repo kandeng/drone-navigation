@@ -16,6 +16,15 @@ function isFlightKey(key) {
   return ['w', 'a', 's', 'd'].includes(key);
 }
 
+function isTypingTarget(target) {
+  return (
+    target &&
+    (target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.isContentEditable)
+  );
+}
+
 function updateKeyboardInput() {
   const w = pressedKeys.has('w');
   const a = pressedKeys.has('a');
@@ -38,6 +47,7 @@ function updateKeyboardInput() {
 }
 
 function handleKeyDown(e) {
+  if (isTypingTarget(e.target)) return;
   const key = e.key.toLowerCase();
   if (!isFlightKey(key)) return;
   e.preventDefault();
@@ -47,6 +57,7 @@ function handleKeyDown(e) {
 }
 
 function handleKeyUp(e) {
+  if (isTypingTarget(e.target)) return;
   const key = e.key.toLowerCase();
   if (!isFlightKey(key)) return;
   e.preventDefault();

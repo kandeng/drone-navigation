@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted, h } from 'vue';
+import { onMounted, onUnmounted, h, ref } from 'vue';
 import ViewComposer from '@shared/_ViewComposer.vue';
 import { MapView } from '@/2d_map/index.js';
 import { useDrone } from '@shared-composables/useDrone.js';
@@ -7,7 +7,9 @@ import { useFlightCommands } from '@shared-composables/useFlightCommands.js';
 import { useFlightPhysics } from '@shared-composables/useFlightPhysics.js';
 import { useDockRegistry } from '@shared-composables/useDockRegistry.js';
 import { usePageRegistry } from '@shared-composables/usePageRegistry.js';
+import { useWaypointPicker } from '@shared-composables/useWaypointPicker.js';
 import DockMenuButton from '@shared/DockMenuButton.vue';
+import WaypointButton from '@/components/WaypointButton.vue';
 
 const { drone } = useDrone();
 const {
@@ -21,8 +23,11 @@ const {
   stopKeyboard,
 } = useFlightCommands();
 const { step: stepFlightPhysics } = useFlightPhysics();
-const { leftItems, registerLeft, clear } = useDockRegistry();
+const { leftItems, rightItems, registerLeft, registerRight, clear } = useDockRegistry();
 const { pages, registerPage, unregisterPage } = usePageRegistry();
+const { isPicking, isPanelOpen, setPicked, openPanel, commitOrigin, setNearbyPois, pickedLocation, activeWaypointId, originDraft } = useWaypointPicker();
+
+const mapViewRef = ref(null);
 
 function onMapCenterChange({ lat, lng }) {
   drone.lat = lat;
@@ -31,6 +36,32 @@ function onMapCenterChange({ lat, lng }) {
 
 function onMapZoomChange(alt) {
   drone.alt = Math.max(0, Math.min(100000, alt));
+}
+
+function onMapClick({ lat, lng }) {
+  if (isPicking.value || isPanelOpen.value) {
+    // If the origin input is active and contains text, commit it as a waypoint
+    // before filling the newly clicked coordinate.
+    if (activeWaypointId.value === null && originDraft.value.trim()) {
+      commitOrigin();
+    }
+    setPicked(lat, lng, 0);
+    if (mapViewRef.value) {
+      mapViewRef.value.searchNearbyPoisAt(lat, lng);
+    }
+    openPanel();
+  }
+}
+
+function onPoisFound(pois) {
+  setNearbyPois(pois);
+}
+
+function onSearchWaypoints() {
+  const loc = pickedLocation.value;
+  if (loc && mapViewRef.value) {
+    mapViewRef.value.searchNearbyPoisAt(loc.lat, loc.lon);
+  }
 }
 
 let rafId = null;
@@ -58,13 +89,6 @@ onMounted(() => {
   registerPage({ id: 'extensions', nameKey: 'aerialview.page_extensions', route: '/extensions' });
 
   registerLeft({
-    id: 'steer',
-    icon: 'MENU_CONTROL_STICK',
-    titleKey: 'aerialview.steer',
-    active: false,
-    onClick: toggleFlight,
-  });
-  registerLeft({
     id: 'router',
     render: () => h(DockMenuButton, {
       icon: 'MENU_ROUTER',
@@ -72,6 +96,20 @@ onMounted(() => {
       pages,
       onBeforeOpen: () => { showFlight.value = false; },
     }),
+  });
+  registerLeft({
+    id: 'waypoint',
+    render: () => h(WaypointButton, {
+      onBeforeOpen: () => { showFlight.value = false; },
+      onSearchWaypoints,
+    }),
+  });
+  registerRight({
+    id: 'steer',
+    icon: 'MENU_CONTROL_STICK',
+    titleKey: 'aerialview.steer',
+    active: false,
+    onClick: toggleFlight,
   });
 
   rafId = requestAnimationFrame(loop);
@@ -94,9 +132,10 @@ onUnmounted(() => {
 <template>
   <ViewComposer
     :left-items="leftItems"
-    :right-items="[]"
+    :right-items="rightItems"
     :show-flight="showFlight"
     :show-camera="false"
+    :show-hud="false"
     :flight="flight"
     :camera="{ mode: '-', yaw: 0, pitch: 0, roll: 0 }"
     @flightMove="onFlightMove"
@@ -105,14 +144,19 @@ onUnmounted(() => {
   >
     <template #background>
       <MapView
+        ref="mapViewRef"
         class="view-composer__background"
         map-type-id="satellite"
         :lat="drone.lat"
         :lon="drone.lon"
         :alt="drone.alt"
         :heading="drone.heading"
+        :is-picking="isPicking"
+        :is-panel-open="isPanelOpen"
         @centerChange="onMapCenterChange"
         @zoomChange="onMapZoomChange"
+        @mapClick="onMapClick"
+        @poisFound="onPoisFound"
       />
     </template>
   </ViewComposer>

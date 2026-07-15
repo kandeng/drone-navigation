@@ -3,8 +3,8 @@
  *
  * Plays sequential video clips from /splash/ while Cesium 3D tiles load.
  * Uses dual-video cross-fade to eliminate black screen between clips.
- * Dismissal happens ONLY at clip boundaries (never mid-clip):
- *   - When a clip ends AND tiles are ready → fade out splash
+ * Dismissal is driven by tile readiness, checked every 500 ms:
+ *   - When tiles become ready → fade out splash immediately (even mid-clip)
  *   - When a clip ends AND tiles NOT ready → play next clip (loop last)
  *   - Timeout fallback after 60 seconds regardless
  *
@@ -33,7 +33,7 @@
       slogan: 'The world is wide, let us take off.',
     },
     zh: {
-      slogan: '世界很大，我们飞去看看',
+      slogan: '世界很大，我们飞过去看看',
     },
   };
 
@@ -185,11 +185,28 @@
   // cesium-main.js dispatches this when tile loading has settled.
   window.addEventListener('cesiumReady', () => {
     tilesReady = true;
-    // If a clip just ended and we're on last clip looping, the next
-    // 'ended' event will trigger dismissal. If we're mid-clip, let it
-    // finish naturally — dismissal happens at the boundary.
+    // The periodic readiness check (every 500 ms) will notice this and
+    // dismiss the splash immediately, even if the current clip is still
+    // playing, so the user reaches the 3D Aerial page as soon as possible.
   });
 
+  // ── Periodic readiness check ──
+  // Check at a constant time step whether Cesium tiles are ready.
+  // If they are, dismiss the splash immediately (even mid-clip) so the
+  // user reaches the 3D Aerial page as soon as possible.
+  const CHECK_INTERVAL = 500; // ms
+  const readyCheckTimer = setInterval(() => {
+    if (tilesReady) {
+      clearInterval(readyCheckTimer);
+      // Pause the active video before fading out to free resources.
+      activeVideo.pause();
+      dismissSplash();
+    }
+  }, CHECK_INTERVAL);
+
   // ── Timeout fallback: dismiss after 60 seconds regardless ──
-  setTimeout(dismissSplash, 60000);
+  setTimeout(() => {
+    clearInterval(readyCheckTimer);
+    dismissSplash();
+  }, 60000);
 })();

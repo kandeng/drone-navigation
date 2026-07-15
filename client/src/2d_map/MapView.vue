@@ -12,13 +12,14 @@ const props = defineProps({
   alt: { type: Number, default: 0 },
   heading: { type: Number, default: 0 },
   mapTypeId: { type: String, default: 'roadmap' },
+  isPicking: { type: Boolean, default: false },
+  isPanelOpen: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['centerChange', 'zoomChange']);
+const emit = defineEmits(['centerChange', 'zoomChange', 'mapClick', 'poisFound']);
 
 const containerRef = ref(null);
 const map = ref(null);
-const error = ref(null);
 
 const MIN_DRONE_SIZE = 24;
 const MAX_DRONE_SIZE = 80;
@@ -48,6 +49,9 @@ let lastProgrammaticZoom = null;
 let lastZoomChangeTime = 0;  // timestamp (ms) of last user-initiated zoom
 let listeners = [];
 let wheelHandler = null;     // stored so we can removeEventListener on unmount
+let clickListener = null;    // Google Maps click listener for picking mode
+let placesService = null;    // Google Maps PlacesService for nearby POI lookup
+let mapsApi = null;          // loaded Google Maps API namespace
 
 function altToZoom(alt) {
   const clamped = Math.max(MIN_ALT, Math.min(MAX_ALT, alt));
@@ -175,13 +179,14 @@ function onWheel(e) {
 
 onMounted(async () => {
   try {
-    const maps = await loadGoogleMaps();
+    mapsApi = await loadGoogleMaps();
 
-    map.value = new maps.Map(containerRef.value, {
+    map.value = new mapsApi.Map(containerRef.value, {
       center: { lat: props.lat, lng: props.lon },
       zoom: altToZoom(props.alt),
       mapTypeId: props.mapTypeId,
       disableDefaultUI: true,
+      clickableIcons: false,  // POI icons should not intercept map picks
       scrollwheel: false,     // we handle wheel events ourselves
       gestureHandling: 'auto',
       draggable: true,
@@ -194,15 +199,19 @@ onMounted(async () => {
       rotateControl: false,
     });
 
-    listeners.push(maps.event.addListener(map.value, 'center_changed', handleCenterChanged));
-    listeners.push(maps.event.addListener(map.value, 'zoom_changed', handleZoomChanged));
+    if (mapsApi.places?.PlacesService) {
+      placesService = new mapsApi.places.PlacesService(map.value);
+    }
+
+    listeners.push(mapsApi.event.addListener(map.value, 'center_changed', handleCenterChanged));
+    listeners.push(mapsApi.event.addListener(map.value, 'zoom_changed', handleZoomChanged));
+    attachMapClickListener();
 
     // Capture-phase wheel listener: fires before any Google Maps listener.
     // passive: false avoids Chrome's passive-listener console warning.
     wheelHandler = onWheel;
     containerRef.value.addEventListener('wheel', wheelHandler, { capture: true, passive: false });
   } catch (e) {
-    error.value = e.message;
     console.error('[2D Map]', e);
   }
 });
@@ -210,6 +219,10 @@ onMounted(async () => {
 onUnmounted(() => {
   listeners.forEach((listener) => listener?.remove());
   listeners = [];
+  if (clickListener) {
+    clickListener.remove();
+    clickListener = null;
+  }
   if (wheelHandler && containerRef.value) {
     containerRef.value.removeEventListener('wheel', wheelHandler, { capture: true });
   }
@@ -222,6 +235,51 @@ watch(() => [props.lat, props.lon], ([lat, lon]) => {
 watch(() => props.alt, (alt) => {
   updateMapZoom(alt);
 });
+
+function searchNearbyPois(latLng) {
+  if (!placesService) return;
+  const request = {
+    location: latLng,
+    radius: 500, // meters
+  };
+  placesService.nearbySearch(request, (results, status) => {
+    if (status === google.maps.places.PlacesServiceStatus.OK) {
+      emit('poisFound', results.slice(0, 10));
+    } else {
+      emit('poisFound', []);
+    }
+  });
+}
+
+function searchNearbyPoisAt(lat, lng) {
+  if (!placesService || !mapsApi) return;
+  searchNearbyPois(new mapsApi.LatLng(lat, lng));
+}
+
+function attachMapClickListener() {
+  if (!map.value) return;
+  if (clickListener) {
+    clickListener.remove();
+    clickListener = null;
+  }
+  if (props.isPicking || props.isPanelOpen) {
+    clickListener = map.value.addListener('click', (e) => {
+      const lat = e.latLng.lat();
+      const lng = e.latLng.lng();
+      emit('mapClick', { lat, lng });
+    });
+  }
+}
+
+defineExpose({
+  searchNearbyPoisAt,
+});
+
+watch(() => [props.isPicking, props.isPanelOpen], () => {
+  attachMapClickListener();
+});
+
+
 </script>
 
 <template>

@@ -35,5 +35,19 @@
   "settings_default_alt": "初始高度 (米)",
   "settings_default_yaw": "初始 Z (偏航)",
   "settings_default_pitch": "初始 Y (俯仰)",
-  "settings_default_roll": "初始 X (翻滚)"
+  "settings_default_roll": "初始 X (翻滚)",
+  "waypoint": "航点",
+  "waypoint_destination": "终点",
+  "waypoint_origin": "起点",
+  "waypoint_origin_placeholder": "输入或点击地图",
+  "waypoint_tag_title": "从地图选择起点",
+  "waypoint_increase_index": "调整航点次序",
+  "waypoint_delete": "删除此航点",
+  "waypoint_search_waypoint": "搜索航点",
+  "waypoint_search_routes": "搜索路线",
+  "waypoint_go_to_origin": "前往起点",
+  "waypoint_poi_types": "类型",
+  "waypoint_poi_rating": "评分",
+  "waypoint_poi_vicinity": "地址",
+  "waypoint_poi_no_results": "未找到附近地点"
 }

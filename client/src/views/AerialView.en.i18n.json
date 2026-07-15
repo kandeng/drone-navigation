@@ -35,5 +35,19 @@
   "settings_default_alt": "Initial Altitude (m)",
   "settings_default_yaw": "Initial Z (yaw)",
   "settings_default_pitch": "Initial Y (pitch)",
-  "settings_default_roll": "Initial X (roll)"
+  "settings_default_roll": "Initial X (roll)",
+  "waypoint": "Waypoint",
+  "waypoint_destination": "Destination",
+  "waypoint_origin": "Origin",
+  "waypoint_origin_placeholder": "type in or tap map",
+  "waypoint_tag_title": "Select origin from map",
+  "waypoint_increase_index": "Reorder the waypoints",
+  "waypoint_delete": "Delete this waypoint",
+  "waypoint_search_waypoint": "Search waypoints",
+  "waypoint_search_routes": "Search routes",
+  "waypoint_go_to_origin": "Go to the origin",
+  "waypoint_poi_types": "Types",
+  "waypoint_poi_rating": "Rating",
+  "waypoint_poi_vicinity": "Address",
+  "waypoint_poi_no_results": "No nearby POIs found"
 }
