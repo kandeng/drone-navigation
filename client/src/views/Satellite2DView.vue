@@ -9,7 +9,7 @@ import { useDockRegistry } from '@shared-composables/useDockRegistry.js';
 import { usePageRegistry } from '@shared-composables/usePageRegistry.js';
 import { useWaypointPicker } from '@shared-composables/useWaypointPicker.js';
 import DockMenuButton from '@shared/DockMenuButton.vue';
-import WaypointButton from '@/components/WaypointButton.vue';
+import WaypointButton from '@shared/WaypointButton.vue';
 
 const { drone } = useDrone();
 const {
@@ -25,7 +25,7 @@ const {
 const { step: stepFlightPhysics } = useFlightPhysics();
 const { leftItems, rightItems, registerLeft, registerRight, clear } = useDockRegistry();
 const { pages, registerPage, unregisterPage } = usePageRegistry();
-const { isPicking, isPanelOpen, setPicked, openPanel, commitOrigin, setNearbyPois, pickedLocation, activeWaypointId, originDraft } = useWaypointPicker();
+const { isPicking, isPanelOpen, setPicked, openPanel, commitOrigin, setNearbyPois, setRouteResult, setRouteError, pickedLocation, activeWaypointId, originDraft, waypoints } = useWaypointPicker();
 
 const mapViewRef = ref(null);
 
@@ -57,10 +57,75 @@ function onPoisFound(pois) {
   setNearbyPois(pois);
 }
 
+function onPoisError(message) {
+  setNearbyPois([]);
+  setRouteError(message);
+}
+
+function onRouteFound(result) {
+  setRouteResult(result);
+}
+
+function onRouteError(status) {
+  setRouteResult(null);
+  let message;
+  if (status === 'REQUEST_DENIED') {
+    message = 'Directions API access was denied. Please enable the Directions API for your Google Maps API key in the Google Cloud Console.';
+  } else if (status === 'OVER_QUERY_LIMIT') {
+    message = 'Directions API quota exceeded. Please check your Google Cloud billing and quota limits.';
+  } else if (status === 'ZERO_RESULTS') {
+    message = 'No route found between the given waypoints.';
+  } else {
+    message = status ? `Directions request failed: ${status}` : 'Could not find a route. Please check the waypoints.';
+  }
+  setRouteError(message);
+}
+
+function parseCoordinateText(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(/[\s,]+/).filter(Boolean);
+  const lat = Number(parts[0]);
+  const lon = Number(parts[1]);
+  if (!isNaN(lat) && !isNaN(lon)) {
+    return { lat, lon };
+  }
+  return null;
+}
+
+function resolveSearchLocation() {
+  if (pickedLocation.value) {
+    return pickedLocation.value;
+  }
+  if (activeWaypointId.value === null) {
+    const originLoc = parseCoordinateText(originDraft.value);
+    if (originLoc) return originLoc;
+  }
+  const id = activeWaypointId.value;
+  const list = id !== null ? waypoints.value : [];
+  const wp = list.find((w) => w.id === id);
+  if (wp) {
+    const wpLoc = parseCoordinateText(wp.name);
+    if (wpLoc) return wpLoc;
+  }
+  return null;
+}
+
 function onSearchWaypoints() {
-  const loc = pickedLocation.value;
+  clearRouteResult();
+  clearRouteError();
+  const loc = resolveSearchLocation();
   if (loc && mapViewRef.value) {
     mapViewRef.value.searchNearbyPoisAt(loc.lat, loc.lon);
+  } else {
+    setRouteError('Please pick a location on the map or enter coordinates first.');
+  }
+}
+
+function onSearchRoutes() {
+  setNearbyPois([]);
+  if (mapViewRef.value) {
+    mapViewRef.value.searchRoutes(waypoints.value);
   }
 }
 
@@ -102,6 +167,7 @@ onMounted(() => {
     render: () => h(WaypointButton, {
       onBeforeOpen: () => { showFlight.value = false; },
       onSearchWaypoints,
+      onSearchRoutes,
     }),
   });
   registerRight({
@@ -157,6 +223,9 @@ onUnmounted(() => {
         @zoomChange="onMapZoomChange"
         @mapClick="onMapClick"
         @poisFound="onPoisFound"
+        @poisError="onPoisError"
+        @routeFound="onRouteFound"
+        @routeError="onRouteError"
       />
     </template>
   </ViewComposer>

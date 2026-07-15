@@ -21,7 +21,13 @@
   "settings_font": "Font",
   "settings_font_style": "Font Style",
   "settings_font_size": "Font Size",
+  "settings_media": "Media",
+  "settings_audio_volume": "Audio Volume",
+  "settings_network": "Network",
+  "settings_enterprise_proxy": "Enterprise Proxy",
+  "settings_enterprise_proxy_placeholder": "https://192.168.0.1:3128",
   "settings_flight": "Flight",
+  "settings_reset_defaults": "Reset to Defaults",
   "settings_takeoff_altitude": "Takeoff Altitude (m)",
   "calibrating": "Calibrating...",
   "preparing_takeoff": "Preparing takeoff...",
@@ -44,10 +50,12 @@
   "waypoint_increase_index": "Reorder the waypoints",
   "waypoint_delete": "Delete this waypoint",
   "waypoint_search_waypoint": "Search waypoints",
-  "waypoint_search_routes": "Search routes",
+  "waypoint_search_routes": "Search route",
+  "waypoint_route_need_more": "Please add at least two waypoints to search for a route.",
+  "waypoint_route_error": "Could not find a route. Please check the waypoints.",
   "waypoint_go_to_origin": "Go to the origin",
   "waypoint_poi_types": "Types",
   "waypoint_poi_rating": "Rating",
   "waypoint_poi_vicinity": "Address",
-  "waypoint_poi_no_results": "No nearby POIs found"
+  "waypoint_poi_no_results": "POIs or Route"
 }

@@ -11,8 +11,11 @@ node_modules/
 dist/
 build/
 
-# Splash video clips (large files, served from CDN in production)
+# Splash media files (large files, served from CDN in production)
 client/public/splash/*.mp4
+!client/public/splash/video_00.mp4
+client/public/splash/*.mp3
+!client/public/splash/background_music_00.mp3
 client/assets/media/*.mp4
 
 # Environment files

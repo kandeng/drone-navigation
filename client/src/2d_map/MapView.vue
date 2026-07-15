@@ -16,7 +16,7 @@ const props = defineProps({
   isPanelOpen: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['centerChange', 'zoomChange', 'mapClick', 'poisFound']);
+const emit = defineEmits(['centerChange', 'zoomChange', 'mapClick', 'poisFound', 'poisError', 'routeFound', 'routeError']);
 
 const containerRef = ref(null);
 const map = ref(null);
@@ -51,6 +51,7 @@ let listeners = [];
 let wheelHandler = null;     // stored so we can removeEventListener on unmount
 let clickListener = null;    // Google Maps click listener for picking mode
 let placesService = null;    // Google Maps PlacesService for nearby POI lookup
+let directionsService = null; // Google Maps DirectionsService for route lookup
 let mapsApi = null;          // loaded Google Maps API namespace
 
 function altToZoom(alt) {
@@ -202,6 +203,9 @@ onMounted(async () => {
     if (mapsApi.places?.PlacesService) {
       placesService = new mapsApi.places.PlacesService(map.value);
     }
+    if (mapsApi.DirectionsService) {
+      directionsService = new mapsApi.DirectionsService();
+    }
 
     listeners.push(mapsApi.event.addListener(map.value, 'center_changed', handleCenterChanged));
     listeners.push(mapsApi.event.addListener(map.value, 'zoom_changed', handleZoomChanged));
@@ -237,7 +241,10 @@ watch(() => props.alt, (alt) => {
 });
 
 function searchNearbyPois(latLng) {
-  if (!placesService) return;
+  if (!placesService) {
+    emit('poisError', 'Places service is not available. Please enable the Places API (Legacy) for your Google Maps API key.');
+    return;
+  }
   const request = {
     location: latLng,
     radius: 500, // meters
@@ -245,6 +252,10 @@ function searchNearbyPois(latLng) {
   placesService.nearbySearch(request, (results, status) => {
     if (status === google.maps.places.PlacesServiceStatus.OK) {
       emit('poisFound', results.slice(0, 10));
+    } else if (status === google.maps.places.PlacesServiceStatus.REQUEST_DENIED) {
+      emit('poisError', 'Places API access was denied. Please enable the Places API (Legacy) for your Google Maps API key in the Google Cloud Console.');
+    } else if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
+      emit('poisError', 'Places API quota exceeded. Please check your Google Cloud billing and quota limits.');
     } else {
       emit('poisFound', []);
     }
@@ -254,6 +265,48 @@ function searchNearbyPois(latLng) {
 function searchNearbyPoisAt(lat, lng) {
   if (!placesService || !mapsApi) return;
   searchNearbyPois(new mapsApi.LatLng(lat, lng));
+}
+
+function parseWaypointInput(name) {
+  if (!name) return null;
+  const trimmed = name.trim();
+  // Try to parse our coordinate format: "lat, lon, alt"
+  const coordMatch = trimmed.match(/^(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/);
+  if (coordMatch) {
+    return new mapsApi.LatLng(parseFloat(coordMatch[1]), parseFloat(coordMatch[2]));
+  }
+  // Otherwise treat as a place/address string
+  return trimmed;
+}
+
+function searchRoutes(waypoints) {
+  if (!directionsService || !mapsApi || waypoints.length < 2) return;
+  const origin = parseWaypointInput(waypoints[0].name);
+  const destination = parseWaypointInput(waypoints[waypoints.length - 1].name);
+  const middleWaypoints = waypoints.slice(1, -1).map((wp) => ({
+    location: parseWaypointInput(wp.name),
+    stopover: true,
+  }));
+  const request = {
+    origin,
+    destination,
+    waypoints: middleWaypoints,
+    travelMode: mapsApi.TravelMode.DRIVING,
+    provideRouteAlternatives: true,
+  };
+  directionsService.route(request, (result, status) => {
+    if (status === mapsApi.DirectionsStatus.OK && result?.routes?.length) {
+      // Select the fastest route by total duration
+      const fastest = result.routes.reduce((best, route) => {
+        const duration = route.legs.reduce((sum, leg) => sum + (leg.duration?.value || 0), 0);
+        const bestDuration = best.legs.reduce((sum, leg) => sum + (leg.duration?.value || 0), 0);
+        return duration < bestDuration ? route : best;
+      });
+      emit('routeFound', { ...result, routes: [fastest] });
+    } else {
+      emit('routeError', status);
+    }
+  });
 }
 
 function attachMapClickListener() {
@@ -273,6 +326,7 @@ function attachMapClickListener() {
 
 defineExpose({
   searchNearbyPoisAt,
+  searchRoutes,
 });
 
 watch(() => [props.isPicking, props.isPanelOpen], () => {

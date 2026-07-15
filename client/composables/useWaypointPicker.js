@@ -29,6 +29,8 @@ const state = reactive({
   pickedLocation: null, // { lat, lon, alt }
   nearbyPois: [], // google.maps.places.PlaceResult[]
   selectedPoi: null, // google.maps.places.PlaceResult | null
+  routeResult: null, // google.maps.DirectionsResult | null
+  routeError: '', // last route search error message
   isPanelOpen: false,
 });
 
@@ -46,6 +48,8 @@ export function useWaypointPicker() {
   const pickedLocation = computed(() => state.pickedLocation);
   const nearbyPois = computed(() => state.nearbyPois);
   const selectedPoi = computed(() => state.selectedPoi);
+  const routeResult = computed(() => state.routeResult);
+  const routeError = computed(() => state.routeError);
   const isPanelOpen = computed(() => state.isPanelOpen);
 
   function startPicking() {
@@ -99,6 +103,23 @@ export function useWaypointPicker() {
     state.selectedPoi = poi ?? null;
   }
 
+  function setRouteResult(result) {
+    state.routeResult = result ?? null;
+    if (result) state.routeError = '';
+  }
+
+  function clearRouteResult() {
+    state.routeResult = null;
+  }
+
+  function setRouteError(message) {
+    state.routeError = message ?? '';
+  }
+
+  function clearRouteError() {
+    state.routeError = '';
+  }
+
   function openPanel() {
     state.isPanelOpen = true;
   }
@@ -112,6 +133,8 @@ export function useWaypointPicker() {
     pickedLocation,
     nearbyPois,
     selectedPoi,
+    routeResult,
+    routeError,
     isPanelOpen,
     waypoints,
     nextWaypointId,
@@ -124,6 +147,10 @@ export function useWaypointPicker() {
     clearPicked,
     setNearbyPois,
     selectPoi,
+    setRouteResult,
+    clearRouteResult,
+    setRouteError,
+    clearRouteError,
     setActiveWaypointId,
     setInputFocused,
     commitOrigin,

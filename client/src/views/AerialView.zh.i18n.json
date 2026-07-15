@@ -21,7 +21,13 @@
   "settings_font": "字体",
   "settings_font_style": "字体样式",
   "settings_font_size": "字号",
+  "settings_media": "媒体",
+  "settings_audio_volume": "音量",
+  "settings_network": "网络",
+  "settings_enterprise_proxy": "企业代理",
+  "settings_enterprise_proxy_placeholder": "https://192.168.0.1:3128",
   "settings_flight": "飞行",
+  "settings_reset_defaults": "恢复默认设置",
   "settings_takeoff_altitude": "起飞高度 (米)",
   "calibrating": "校准中...",
   "preparing_takeoff": "准备起飞中...",
@@ -45,9 +51,11 @@
   "waypoint_delete": "删除此航点",
   "waypoint_search_waypoint": "搜索航点",
   "waypoint_search_routes": "搜索路线",
+  "waypoint_route_need_more": "请至少添加两个航点才能搜索路线。",
+  "waypoint_route_error": "无法找到路线，请检查航点。",
   "waypoint_go_to_origin": "前往起点",
   "waypoint_poi_types": "类型",
   "waypoint_poi_rating": "评分",
   "waypoint_poi_vicinity": "地址",
-  "waypoint_poi_no_results": "未找到附近地点"
+  "waypoint_poi_no_results": "POI 或路线"
 }

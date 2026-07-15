@@ -101,10 +101,10 @@ Required APIs to enable on the same key:
 
 - **Map Tiles API** — loads Google Photorealistic 3D Tiles in Cesium.
 - **Maps JavaScript API** — loads the interactive Street View panorama during takeoff/landing and the 2D map toggle.
-- **Places API** — fetches nearby points of interest when selecting a waypoint origin on the 2D map or satellite view.
+- **Places API (Legacy)** — fetches nearby points of interest when selecting a waypoint origin on the 2D map or satellite view. Make sure to enable the **legacy** Places API, not the new Places API, because the 2D map uses the classic `google.maps.places.PlacesService`.
 - **Geocoding API** — converts latitude/longitude to a human-readable address for waypoint details.
 - **Maps Elevation API** — samples terrain elevation for route and altitude planning.
-- **Directions API** — computes routes between waypoints.
+- **Directions API** — computes routes between waypoints (required for the **Search route** button in the waypoint panel).
 - **Roads API** — snaps coordinates to the nearest road for accurate ground routes.
 
 #### Step-by-step
@@ -120,17 +120,17 @@ Required APIs to enable on the same key:
    - Open the navigation menu → **APIs & Services** → **Library**.
    - Search for and enable **Map Tiles API**.
    - Search for and enable **Maps JavaScript API**.
-   - Search for and enable **Places API**.
+   - Search for and enable **Places API (Legacy)** (the classic Places API; the new Places API is not sufficient).
    - Search for and enable **Geocoding API**.
    - Search for and enable **Maps Elevation API**.
-   - Search for and enable **Directions API**.
+   - Search for and enable **Directions API** (required for **Search route**).
    - Search for and enable **Roads API**.
 5. Create an API key:
    - Go to **APIs & Services** → **Credentials**.
    - Click **Create credentials** → **API key**.
    - Optional but recommended: click the key and restrict it:
      - Under **Application restrictions**, add your dev/prod domains (e.g., `localhost:5173/*` for local development).
-     - Under **API restrictions**, select only the APIs you enabled (**Map Tiles API**, **Maps JavaScript API**, **Places API**, **Geocoding API**, **Maps Elevation API**, **Directions API**, and **Roads API**).
+     - Under **API restrictions**, select only the APIs you enabled (**Map Tiles API**, **Maps JavaScript API**, **Places API (Legacy)**, **Geocoding API**, **Maps Elevation API**, **Directions API**, and **Roads API**).
 6. Copy the key and paste it into `config.json` as `googleApiKey`.
 
 #### Google Maps APIs to enable
@@ -139,10 +139,10 @@ Required APIs to enable on the same key:
 |---|---|
 | **Map Tiles API** | Loads Google Photorealistic 3D Tiles in Cesium. |
 | **Maps JavaScript API** | Loads the interactive 2D map and Street View panorama. |
-| **Places API** (classic) | Fetches nearby points of interest for waypoint origin selection. |
+| **Places API (Legacy)** | Fetches nearby points of interest for waypoint origin selection. The legacy API is required because the code uses `google.maps.places.PlacesService`. |
 | **Geocoding API** | Converts latitude/longitude to a human-readable address. |
 | **Maps Elevation API** | Samples terrain elevation for route and altitude planning. |
-| **Directions API** | Computes routes between waypoints. |
+| **Directions API** | Computes routes between waypoints (required for **Search route**). |
 | **Roads API** | Snaps coordinates to the nearest road for accurate ground routes. |
 
 ### 2. Cesium ion access token
@@ -173,7 +173,7 @@ Then edit it:
 {
   "googleApiKey": "YOUR_GOOGLE_MAPS_API_KEY",
   "cesiumIonToken": "YOUR_CESIUM_ION_ACCESS_TOKEN",
-  "_note": "The Google API key must have Map Tiles API, Maps JavaScript API, Places API, Geocoding API, Maps Elevation API, Directions API, and Roads API enabled for 3D aerial tiles, Street View, the 2D map toggle, waypoint POI lookup, address geocoding, elevation sampling, route computation, and road snapping."
+  "_note": "The Google API key must have Map Tiles API, Maps JavaScript API, Places API (Legacy), Geocoding API, Maps Elevation API, Directions API, and Roads API enabled for 3D aerial tiles, Street View, the 2D map toggle, waypoint POI lookup, address geocoding, elevation sampling, route computation, and road snapping."
 }
 ```
 

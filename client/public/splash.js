@@ -15,15 +15,46 @@
 (function () {
   'use strict';
 
-  // ── Clip playlist (config-driven, future-proof for per-user API) ──
-  // In the future, this array will be fetched from an API endpoint:
-  //   GET /api/splash/playlist?userId=xxx
-  // For now, it's a local config that can be easily swapped.
-  const clips = [
+  // ── Splash media config ──
+  // The first clip is always played. Remaining clips are shuffled and played
+  // without repetition; once all have played, a new shuffle begins.
+  const FIRST_CLIP = '/splash/video_00.mp4';
+  const OTHER_CLIPS = [
     '/splash/vantor_world3d.mp4',
     '/splash/kevtoe_worldview.mp4',
-    '/splash/drone_earth_milkway_continent.mp4',
   ];
+  const MUSIC_URL = '/splash/background_music_00.mp3';
+  const SETTINGS_KEY = 'app-settings';
+
+  function loadAudioVolume() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const vol = Number(parsed.audioVolume);
+        if (!isNaN(vol)) return Math.max(0, Math.min(1, vol));
+      }
+    } catch {
+      // ignore
+    }
+    return 0.9;
+  }
+
+  function shuffleArray(arr) {
+    const copy = arr.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
+
+  function buildPlaylist() {
+    return [FIRST_CLIP, ...shuffleArray(OTHER_CLIPS)];
+  }
+
+  let playlist = buildPlaylist();
+  let currentClip = 0;
 
   // ── i18n translations (customizable, not standard translations) ──
   // Each language has its own custom slogan text.
@@ -77,7 +108,6 @@
   }
 
   // ── State ──
-  let currentClip = 0;
   let dismissed = false;
   let tilesReady = false;
 
@@ -102,19 +132,63 @@
   let activeVideo = videoA;
   let standbyVideo = videoB;
 
+  // ── Background music (loops continuously) ──
+  const bgMusic = new Audio(MUSIC_URL);
+  bgMusic.loop = true;
+  bgMusic.volume = loadAudioVolume();
+  bgMusic.play().catch(() => {
+    // Browsers may block autoplay until user interaction.
+    // The music will start once the user clicks or taps anywhere.
+    const startMusic = () => {
+      bgMusic.play().catch(() => {});
+      document.removeEventListener('click', startMusic);
+      document.removeEventListener('touchstart', startMusic);
+    };
+    document.addEventListener('click', startMusic);
+    document.addEventListener('touchstart', startMusic);
+  });
+
+  /**
+   * Fade out background music over the given duration (ms).
+   */
+  function fadeOutMusic(duration = 2000) {
+    const startVolume = bgMusic.volume || loadAudioVolume();
+    const startTime = performance.now();
+    function step(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      bgMusic.volume = Math.max(0, startVolume * (1 - progress));
+      if (progress < 1) {
+        requestAnimationFrame(step);
+      } else {
+        bgMusic.pause();
+        bgMusic.currentTime = 0;
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
   /**
    * Preload the next clip into the standby video element.
    * This starts buffering so the switch is instant.
    */
   function preloadNext(clipIndex) {
-    if (clipIndex < clips.length) {
-      standbyVideo.src = clips[clipIndex];
+    if (clipIndex < playlist.length) {
+      standbyVideo.src = playlist[clipIndex];
       standbyVideo.load();
+      standbyVideo.addEventListener(
+        'loadedmetadata',
+        function onMeta() {
+          standbyVideo.currentTime = 0;
+          standbyVideo.removeEventListener('loadedmetadata', onMeta);
+        },
+        { once: true }
+      );
     }
   }
 
   // ── Start the first clip and preload the second ──
-  videoA.src = clips[0];
+  videoA.src = playlist[0];
   videoA.play().catch(() => {});
   preloadNext(1); // Start buffering clip 2
 
@@ -125,6 +199,7 @@
   function dismissSplash() {
     if (dismissed) return;
     dismissed = true;
+    fadeOutMusic(2000); // Gradually mute music over 2 seconds
     overlay.classList.add('splash-fade-out');
     overlay.addEventListener('transitionend', () => {
       overlay.remove();
@@ -135,6 +210,9 @@
    * Cross-fade from active video to standby video (which has next clip ready).
    */
   function crossFadeToNext() {
+    // Ensure the next clip always starts from the very beginning.
+    standbyVideo.currentTime = 0;
+
     // Swap visibility
     activeVideo.style.transition = 'opacity 0.4s ease';
     standbyVideo.style.transition = 'opacity 0.4s ease';
@@ -166,15 +244,16 @@
     if (tilesReady) {
       // Tiles are loaded — dismiss now (at clip boundary)
       dismissSplash();
-    } else if (currentClip < clips.length - 1) {
+    } else if (currentClip < playlist.length - 1) {
       // More clips available — cross-fade to next (already preloaded)
       currentClip++;
       crossFadeToNext();
     } else {
-      // Last clip — loop it until tiles are ready
-      activeVideo.currentTime = 0;
-      activeVideo.play().catch(() => {});
-      activeVideo.addEventListener('ended', onClipEnded);
+      // End of playlist — build a new shuffle (always starting with FIRST_CLIP)
+      playlist = buildPlaylist();
+      currentClip = 1; // Skip FIRST_CLIP; it already played
+      preloadNext(currentClip);
+      crossFadeToNext();
     }
   }
 

@@ -14,9 +14,11 @@ const defaults = {
   defaultLat: 37.4286,
   defaultLon: -122.1699,
   defaultAlt: 150,
-  defaultYaw: 0,
+  defaultYaw: 180,
   defaultPitch: 0,
   defaultRoll: 0,
+  audioVolume: 0.9,
+  enterpriseProxy: '',
 };
 
 /** Hydrate from localStorage, falling back to defaults. */
@@ -92,6 +94,45 @@ export function useAppSettings() {
     state.defaultRoll = Math.max(-90, Math.min(90, n));
   }
 
+  function setAudioVolume(val) {
+    const n = Number(val);
+    if (!isNaN(n)) state.audioVolume = Math.max(0, Math.min(1, n));
+  }
+
+  function setEnterpriseProxy(val) {
+    state.enterpriseProxy = String(val || '');
+  }
+
+  function resetFontDefaults() {
+    state.fontFamily = defaults.fontFamily;
+    state.fontSize = defaults.fontSize;
+    document.documentElement.style.fontSize = defaults.fontSize;
+  }
+
+  function resetFlightDefaults() {
+    state.takeoffAltitude = defaults.takeoffAltitude;
+    state.safetyBuffer = defaults.safetyBuffer;
+    state.defaultLat = defaults.defaultLat;
+    state.defaultLon = defaults.defaultLon;
+    state.defaultAlt = defaults.defaultAlt;
+    state.defaultYaw = defaults.defaultYaw;
+    state.defaultPitch = defaults.defaultPitch;
+    state.defaultRoll = defaults.defaultRoll;
+  }
+
+  function resetMediaDefaults() {
+    state.audioVolume = defaults.audioVolume;
+  }
+
+  function resetNetworkDefaults() {
+    state.enterpriseProxy = defaults.enterpriseProxy;
+  }
+
+  function resetToDefaults() {
+    Object.assign(state, defaults);
+    document.documentElement.style.fontSize = defaults.fontSize;
+  }
+
   return {
     settings: state,
     setFontFamily,
@@ -104,5 +145,10 @@ export function useAppSettings() {
     setDefaultYaw,
     setDefaultPitch,
     setDefaultRoll,
+    resetFontDefaults,
+    resetFlightDefaults,
+    resetMediaDefaults,
+    resetNetworkDefaults,
+    resetToDefaults,
   };
 }

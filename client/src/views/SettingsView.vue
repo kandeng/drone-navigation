@@ -10,7 +10,7 @@ import { useAppSettings } from '@shared-composables/useAppSettings.js';
 const { t, locale } = useI18n();
 const { leftItems, registerLeft, clear } = useDockRegistry();
 const { pages, registerPage, unregisterPage } = usePageRegistry();
-const { settings, setFontFamily, setFontSize, setTakeoffAltitude, setSafetyBuffer, setDefaultLat, setDefaultLon, setDefaultAlt, setDefaultYaw, setDefaultPitch, setDefaultRoll } = useAppSettings();
+const { settings, setFontFamily, setFontSize, setTakeoffAltitude, setSafetyBuffer, setDefaultLat, setDefaultLon, setDefaultAlt, setDefaultYaw, setDefaultPitch, setDefaultRoll, setEnterpriseProxy, resetFontDefaults, resetFlightDefaults, resetMediaDefaults, resetNetworkDefaults } = useAppSettings();
 
 /* ─── Left-column width drag ─── */
 const LEFT_MIN = 180;
@@ -47,6 +47,8 @@ const selectedId = ref('language');
 const SETTINGS_LIST = [
   { id: 'language', labelKey: 'aerialview.settings_language' },
   { id: 'font', labelKey: 'aerialview.settings_font' },
+  { id: 'media', labelKey: 'aerialview.settings_media' },
+  { id: 'network', labelKey: 'aerialview.settings_network' },
   { id: 'flight', labelKey: 'aerialview.settings_flight' },
 ];
 
@@ -194,6 +196,58 @@ onUnmounted(() => {
                 </option>
               </select>
             </div>
+
+            <div class="settings-row settings-row--actions">
+              <button class="settings-button settings-button--secondary" @click="resetFontDefaults">
+                {{ t('aerialview.settings_reset_defaults') }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Media -->
+          <div v-if="selectedId === 'media'" class="settings-section">
+            <h2 class="settings-section__title">{{ t('aerialview.settings_media') }}</h2>
+
+            <div class="settings-row">
+              <label class="settings-row__label">{{ t('aerialview.settings_audio_volume') }}</label>
+              <input
+                v-model.number="settings.audioVolume"
+                type="range"
+                class="settings-slider"
+                min="0"
+                max="1"
+                step="0.01"
+              />
+              <span class="settings-value">{{ Math.round(settings.audioVolume * 100) }}%</span>
+            </div>
+
+            <div class="settings-row settings-row--actions">
+              <button class="settings-button settings-button--secondary" @click="resetMediaDefaults">
+                {{ t('aerialview.settings_reset_defaults') }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Network -->
+          <div v-if="selectedId === 'network'" class="settings-section">
+            <h2 class="settings-section__title">{{ t('aerialview.settings_network') }}</h2>
+
+            <div class="settings-row">
+              <label class="settings-row__label">{{ t('aerialview.settings_enterprise_proxy') }}</label>
+              <input
+                type="text"
+                class="settings-input"
+                :value="settings.enterpriseProxy"
+                :placeholder="t('aerialview.settings_enterprise_proxy_placeholder')"
+                @input="setEnterpriseProxy($event.target.value)"
+              />
+            </div>
+
+            <div class="settings-row settings-row--actions">
+              <button class="settings-button settings-button--secondary" @click="resetNetworkDefaults">
+                {{ t('aerialview.settings_reset_defaults') }}
+              </button>
+            </div>
           </div>
 
           <!-- Flight -->
@@ -303,6 +357,12 @@ onUnmounted(() => {
                 @change="setDefaultRoll($event.target.value)"
               />
             </div>
+
+            <div class="settings-row settings-row--actions">
+              <button class="settings-button settings-button--secondary" @click="resetFlightDefaults">
+                {{ t('aerialview.settings_reset_defaults') }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -376,6 +436,12 @@ onUnmounted(() => {
   background: #ffffff;
 }
 
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
 .settings-section__title {
   margin: 0 0 20px 0;
   font-size: 1.25rem;
@@ -391,8 +457,7 @@ onUnmounted(() => {
 }
 
 .settings-row__label {
-  flex-shrink: 0;
-  width: 100px;
+  flex: 0 0 calc(100% / 3);
   font-size: 0.875rem;
   font-weight: 500;
   color: #6e6e73;
@@ -419,6 +484,7 @@ onUnmounted(() => {
 }
 
 .settings-input {
+  flex: 1;
   padding: 7px 12px;
   border-radius: 6px;
   border: 1px solid #d2d2d7;
@@ -431,6 +497,7 @@ onUnmounted(() => {
 }
 
 .settings-input--narrow {
+  flex: 0 0 auto;
   width: 120px;
 }
 
@@ -441,5 +508,51 @@ onUnmounted(() => {
 .settings-input:focus {
   border-color: #007aff;
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
+}
+
+.settings-row--actions {
+  margin-top: auto;
+  margin-bottom: 24px;
+}
+
+.settings-button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid #d2d2d7;
+  background: #ffffff;
+  color: #1d1d1f;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.settings-button:hover {
+  background: #f5f5f7;
+  border-color: #007aff;
+}
+
+.settings-button--secondary {
+  border-color: rgba(0, 0, 0, 0.12);
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.settings-button--secondary:hover {
+  background: #d1d5db;
+}
+
+.settings-slider {
+  flex: 1;
+  min-width: 120px;
+  cursor: pointer;
+}
+
+.settings-value {
+  flex: 0 0 auto;
+  min-width: 42px;
+  text-align: right;
+  font-size: 0.875rem;
+  color: #6e6e73;
 }
 </style>
