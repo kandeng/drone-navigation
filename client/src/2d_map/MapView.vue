@@ -20,6 +20,7 @@ const emit = defineEmits(['centerChange', 'zoomChange', 'mapClick', 'poisFound',
 
 const containerRef = ref(null);
 const map = ref(null);
+const error = ref('');
 
 const MIN_DRONE_SIZE = 24;
 const MAX_DRONE_SIZE = 80;
@@ -50,7 +51,6 @@ let lastZoomChangeTime = 0;  // timestamp (ms) of last user-initiated zoom
 let listeners = [];
 let wheelHandler = null;     // stored so we can removeEventListener on unmount
 let clickListener = null;    // Google Maps click listener for picking mode
-let placesService = null;    // Google Maps PlacesService for nearby POI lookup
 let directionsService = null; // Google Maps DirectionsService for route lookup
 let mapsApi = null;          // loaded Google Maps API namespace
 
@@ -200,9 +200,6 @@ onMounted(async () => {
       rotateControl: false,
     });
 
-    if (mapsApi.places?.PlacesService) {
-      placesService = new mapsApi.places.PlacesService(map.value);
-    }
     if (mapsApi.DirectionsService) {
       directionsService = new mapsApi.DirectionsService();
     }
@@ -217,6 +214,7 @@ onMounted(async () => {
     containerRef.value.addEventListener('wheel', wheelHandler, { capture: true, passive: false });
   } catch (e) {
     console.error('[2D Map]', e);
+    error.value = e?.message || String(e);
   }
 });
 
@@ -240,30 +238,46 @@ watch(() => props.alt, (alt) => {
   updateMapZoom(alt);
 });
 
-function searchNearbyPois(latLng) {
-  if (!placesService) {
-    emit('poisError', 'Places service is not available. Please enable the Places API (Legacy) for your Google Maps API key.');
+function displayNameOf(place) {
+  if (!place || !place.displayName) return '';
+  return typeof place.displayName === 'string' ? place.displayName : place.displayName.text || '';
+}
+
+async function searchNearbyPois(latLng) {
+  if (!mapsApi?.places?.Place?.searchNearby) {
+    emit('poisError', 'Places API is not available. Please enable the Places API for your Google Maps API key.');
     return;
   }
-  const request = {
-    location: latLng,
-    radius: 500, // meters
-  };
-  placesService.nearbySearch(request, (results, status) => {
-    if (status === google.maps.places.PlacesServiceStatus.OK) {
-      emit('poisFound', results.slice(0, 10));
-    } else if (status === google.maps.places.PlacesServiceStatus.REQUEST_DENIED) {
-      emit('poisError', 'Places API access was denied. Please enable the Places API (Legacy) for your Google Maps API key in the Google Cloud Console.');
-    } else if (status === google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
-      emit('poisError', 'Places API quota exceeded. Please check your Google Cloud billing and quota limits.');
-    } else {
-      emit('poisFound', []);
-    }
-  });
+  try {
+    const request = {
+      locationRestriction: {
+        circle: {
+          center: { lat: latLng.lat(), lng: latLng.lng() },
+          radius: 500, // meters
+        },
+      },
+      fields: ['id', 'displayName', 'location'],
+    };
+    console.log('[MapView] calling Place.searchNearby', request);
+    const response = await mapsApi.places.Place.searchNearby(request);
+    const places = (response?.places || []).slice(0, 10).map((place) => ({
+      place_id: place.id,
+      name: displayNameOf(place),
+      geometry: {
+        location: place.location,
+      },
+    }));
+    console.log('[MapView] Place.searchNearby returned', places.length, 'POIs');
+    emit('poisFound', places);
+  } catch (err) {
+    console.error('[MapView] Place.searchNearby error:', err);
+    emit('poisError', `Places API request failed: ${err?.message || err}`);
+  }
 }
 
 function searchNearbyPoisAt(lat, lng) {
-  if (!placesService || !mapsApi) return;
+  console.log('[MapView] searchNearbyPoisAt called:', lat, lng, 'mapsApi:', !!mapsApi);
+  if (!mapsApi) return;
   searchNearbyPois(new mapsApi.LatLng(lat, lng));
 }
 

@@ -42,7 +42,7 @@ export function loadGoogleMaps() {
     };
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=${CALLBACK_NAME}&loading=async&libraries=places,directions`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&callback=${CALLBACK_NAME}&loading=async&libraries=places`;
     script.async = true;
     script.onerror = () => {
       clearTimeout(timeout);

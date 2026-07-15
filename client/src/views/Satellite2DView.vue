@@ -25,7 +25,7 @@ const {
 const { step: stepFlightPhysics } = useFlightPhysics();
 const { leftItems, rightItems, registerLeft, registerRight, clear } = useDockRegistry();
 const { pages, registerPage, unregisterPage } = usePageRegistry();
-const { isPicking, isPanelOpen, setPicked, openPanel, commitOrigin, setNearbyPois, setRouteResult, setRouteError, pickedLocation, activeWaypointId, originDraft, waypoints } = useWaypointPicker();
+const { isPicking, isPanelOpen, setPicked, openPanel, commitOrigin, setNearbyPois, setRouteResult, clearRouteResult, setRouteError, clearRouteError, pickedLocation, activeWaypointId, originDraft, waypoints } = useWaypointPicker();
 
 const mapViewRef = ref(null);
 
@@ -54,10 +54,12 @@ function onMapClick({ lat, lng }) {
 }
 
 function onPoisFound(pois) {
+  console.log('[Satellite2DView] poisFound:', pois.length, 'POIs');
   setNearbyPois(pois);
 }
 
 function onPoisError(message) {
+  console.error('[Satellite2DView] poisError:', message);
   setNearbyPois([]);
   setRouteError(message);
 }
@@ -100,6 +102,11 @@ function resolveSearchLocation() {
   if (activeWaypointId.value === null) {
     const originLoc = parseCoordinateText(originDraft.value);
     if (originLoc) return originLoc;
+    const firstWp = waypoints.value[0];
+    if (firstWp) {
+      const firstLoc = parseCoordinateText(firstWp.name);
+      if (firstLoc) return firstLoc;
+    }
   }
   const id = activeWaypointId.value;
   const list = id !== null ? waypoints.value : [];
@@ -108,6 +115,9 @@ function resolveSearchLocation() {
     const wpLoc = parseCoordinateText(wp.name);
     if (wpLoc) return wpLoc;
   }
+  if (!isNaN(drone.lat) && !isNaN(drone.lon)) {
+    return { lat: drone.lat, lon: drone.lon };
+  }
   return null;
 }
 
@@ -115,9 +125,12 @@ function onSearchWaypoints() {
   clearRouteResult();
   clearRouteError();
   const loc = resolveSearchLocation();
+  console.log('[Search waypoints] resolved loc:', loc, 'activeWaypointId:', activeWaypointId.value, 'originDraft:', originDraft.value, 'waypoints:', waypoints.value);
   if (loc && mapViewRef.value) {
+    console.log('[Search waypoints] calling searchNearbyPoisAt with', loc.lat, loc.lon);
     mapViewRef.value.searchNearbyPoisAt(loc.lat, loc.lon);
   } else {
+    console.warn('[Search waypoints] no usable location');
     setRouteError('Please pick a location on the map or enter coordinates first.');
   }
 }
