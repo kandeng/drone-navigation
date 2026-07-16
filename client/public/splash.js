@@ -172,15 +172,31 @@
    * Preload the next clip into the standby video element.
    * This starts buffering so the switch is instant.
    */
+  function logVideoState(label, video) {
+    console.log(
+      `[splash] ${label}: src=${video.src?.split('/').pop()}, readyState=${video.readyState}, currentTime=${video.currentTime.toFixed(2)}, paused=${video.paused}, ended=${video.ended}`
+    );
+  }
+
   function preloadNext(clipIndex) {
     if (clipIndex < playlist.length) {
+      console.log('[splash] preloading clip', clipIndex, playlist[clipIndex]);
       standbyVideo.src = playlist[clipIndex];
       standbyVideo.load();
       standbyVideo.addEventListener(
         'loadedmetadata',
         function onMeta() {
           standbyVideo.currentTime = 0;
+          logVideoState('preload metadata', standbyVideo);
           standbyVideo.removeEventListener('loadedmetadata', onMeta);
+        },
+        { once: true }
+      );
+      standbyVideo.addEventListener(
+        'error',
+        function onErr(e) {
+          console.error('[splash] preload error for', playlist[clipIndex], e);
+          standbyVideo.removeEventListener('error', onErr);
         },
         { once: true }
       );
@@ -210,33 +226,64 @@
    * Cross-fade from active video to standby video (which has next clip ready).
    */
   function crossFadeToNext() {
-    // Ensure the next clip always starts from the very beginning.
-    standbyVideo.currentTime = 0;
+    logVideoState('crossfade standby', standbyVideo);
 
-    // Swap visibility
-    activeVideo.style.transition = 'opacity 0.4s ease';
-    standbyVideo.style.transition = 'opacity 0.4s ease';
-    activeVideo.style.opacity = '0';
-    standbyVideo.style.opacity = '1';
+    function doFade() {
+      // Ensure the next clip always starts from the very beginning.
+      standbyVideo.currentTime = 0;
 
-    // Play the standby video
-    standbyVideo.play().catch(() => {});
+      // Swap visibility
+      activeVideo.style.transition = 'opacity 0.4s ease';
+      standbyVideo.style.transition = 'opacity 0.4s ease';
+      activeVideo.style.opacity = '0';
+      standbyVideo.style.opacity = '1';
 
-    // Swap references
-    const temp = activeVideo;
-    activeVideo = standbyVideo;
-    standbyVideo = temp;
+      // Play the standby video
+      console.log('[splash] playing standby clip', standbyVideo.src?.split('/').pop());
+      standbyVideo.play().catch((err) => {
+        console.error('[splash] standby play failed:', err);
+      });
 
-    // Preload the clip after next into the new standby
-    preloadNext(currentClip + 1);
+      // Swap references
+      const temp = activeVideo;
+      activeVideo = standbyVideo;
+      standbyVideo = temp;
 
-    // Re-attach ended listener to the new active video
-    activeVideo.addEventListener('ended', onClipEnded);
+      // Preload the clip after next into the new standby
+      preloadNext(currentClip + 1);
+
+      // Re-attach ended listener to the new active video
+      activeVideo.addEventListener('ended', onClipEnded);
+    }
+
+    // Wait until the standby clip is ready to play without stalling.
+    if (standbyVideo.readyState >= 3) {
+      doFade();
+    } else {
+      console.log('[splash] waiting for standby canplay...');
+      standbyVideo.addEventListener(
+        'canplay',
+        function onCanPlay() {
+          standbyVideo.removeEventListener('canplay', onCanPlay);
+          doFade();
+        },
+        { once: true }
+      );
+      // Safety timeout: fade anyway after 3s so we don't hang forever.
+      setTimeout(() => {
+        if (standbyVideo.readyState < 3) {
+          console.warn('[splash] standby canplay timeout, fading anyway');
+          doFade();
+        }
+      }, 3000);
+    }
   }
 
   // ── Clip boundary handler ──
   function onClipEnded() {
     if (dismissed) return;
+    console.log('[splash] clip ended. currentClip=', currentClip, 'playlist length=', playlist.length);
+    logVideoState('active ended', activeVideo);
 
     // Remove listener from current video to avoid duplicate calls
     activeVideo.removeEventListener('ended', onClipEnded);
