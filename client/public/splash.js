@@ -181,6 +181,11 @@
   function preloadNext(clipIndex) {
     if (clipIndex < playlist.length) {
       console.log('[splash] preloading clip', clipIndex, playlist[clipIndex]);
+      // Fully reset the standby element before loading the next clip,
+      // so any stale ended/seek state from the previous clip is cleared.
+      standbyVideo.pause();
+      standbyVideo.removeAttribute('src');
+      standbyVideo.load();
       standbyVideo.src = playlist[clipIndex];
       standbyVideo.load();
       standbyVideo.addEventListener(
@@ -189,6 +194,14 @@
           standbyVideo.currentTime = 0;
           logVideoState('preload metadata', standbyVideo);
           standbyVideo.removeEventListener('loadedmetadata', onMeta);
+        },
+        { once: true }
+      );
+      standbyVideo.addEventListener(
+        'canplaythrough',
+        function onCanPlayThrough() {
+          logVideoState('preload canplaythrough', standbyVideo);
+          standbyVideo.removeEventListener('canplaythrough', onCanPlayThrough);
         },
         { once: true }
       );
@@ -222,6 +235,56 @@
     });
   }
 
+  function logEvent(name, video, detail) {
+    console.log(
+      `[splash] event ${name} on ${video.src?.split('/').pop()}`,
+      `readyState=${video.readyState}`,
+      `currentTime=${video.currentTime.toFixed(2)}`,
+      detail || ''
+    );
+  }
+
+  function onTimeUpdate(e) {
+    const video = e.target;
+    const remaining = video.duration - video.currentTime;
+    // Log near-end and once per 2 seconds to show progress.
+    if (!isNaN(remaining) && remaining < 0.5) {
+      console.log(
+        `[splash] near end: ${video.src?.split('/').pop()} currentTime=${video.currentTime.toFixed(2)} duration=${video.duration?.toFixed(2)} remaining=${remaining.toFixed(2)}`
+      );
+    } else if (Math.floor(video.currentTime) % 2 === 0) {
+      if (video.lastLoggedSecond !== Math.floor(video.currentTime)) {
+        video.lastLoggedSecond = Math.floor(video.currentTime);
+        console.log(
+          `[splash] progress: ${video.src?.split('/').pop()} currentTime=${video.currentTime.toFixed(2)} duration=${video.duration?.toFixed(2)}`
+        );
+      }
+    }
+  }
+
+  function onWaiting(e) { logEvent('waiting', e.target); }
+  function onStalled(e) { logEvent('stalled', e.target); }
+  function onSuspend(e) { logEvent('suspend', e.target); }
+  function onError(e) { logEvent('error', e.target, e); }
+
+  function attachActiveListeners(video) {
+    video.addEventListener('ended', onClipEnded);
+    video.addEventListener('timeupdate', onTimeUpdate);
+    video.addEventListener('waiting', onWaiting);
+    video.addEventListener('stalled', onStalled);
+    video.addEventListener('suspend', onSuspend);
+    video.addEventListener('error', onError);
+  }
+
+  function detachActiveListeners(video) {
+    video.removeEventListener('ended', onClipEnded);
+    video.removeEventListener('timeupdate', onTimeUpdate);
+    video.removeEventListener('waiting', onWaiting);
+    video.removeEventListener('stalled', onStalled);
+    video.removeEventListener('suspend', onSuspend);
+    video.removeEventListener('error', onError);
+  }
+
   /**
    * Cross-fade from active video to standby video (which has next clip ready).
    */
@@ -240,20 +303,29 @@
 
       // Play the standby video
       console.log('[splash] playing standby clip', standbyVideo.src?.split('/').pop());
-      standbyVideo.play().catch((err) => {
-        console.error('[splash] standby play failed:', err);
-      });
+      const playPromise = standbyVideo.play();
+      if (playPromise) {
+        playPromise.catch((err) => {
+          console.error('[splash] standby play failed:', err);
+        });
+      }
 
-      // Swap references
+      // Swap references so activeVideo points to the clip we just started playing.
       const temp = activeVideo;
       activeVideo = standbyVideo;
       standbyVideo = temp;
 
+      // Attach listeners to the new active video.
+      attachActiveListeners(activeVideo);
+
       // Preload the clip after next into the new standby
       preloadNext(currentClip + 1);
 
-      // Re-attach ended listener to the new active video
-      activeVideo.addEventListener('ended', onClipEnded);
+      if (playPromise) {
+        playPromise.then(() => {
+          console.log('[splash] standby play started');
+        });
+      }
     }
 
     // Wait until the standby clip is ready to play without stalling.
@@ -280,13 +352,14 @@
   }
 
   // ── Clip boundary handler ──
-  function onClipEnded() {
+  function onClipEnded(e) {
     if (dismissed) return;
+    const video = e.target;
     console.log('[splash] clip ended. currentClip=', currentClip, 'playlist length=', playlist.length);
     logVideoState('active ended', activeVideo);
 
-    // Remove listener from current video to avoid duplicate calls
-    activeVideo.removeEventListener('ended', onClipEnded);
+    // Remove listeners from current video to avoid duplicate calls
+    detachActiveListeners(video);
 
     if (tilesReady) {
       // Tiles are loaded — dismiss now (at clip boundary)
@@ -304,8 +377,15 @@
     }
   }
 
-  // Attach initial ended listener
-  videoA.addEventListener('ended', onClipEnded);
+  // Attach initial active-video listeners
+  attachActiveListeners(videoA);
+
+  // Heartbeat log so we can see the active video state even if events stall.
+  setInterval(() => {
+    if (!dismissed) {
+      logVideoState('heartbeat', activeVideo);
+    }
+  }, 2000);
 
   // ── Cesium readiness signal ──
   // cesium-main.js dispatches this when tile loading has settled.
