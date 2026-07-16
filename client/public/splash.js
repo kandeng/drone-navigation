@@ -25,6 +25,10 @@
   ];
   const MUSIC_URL = '/splash/background_music_00.mp3';
   const SETTINGS_KEY = 'app-settings';
+  // Maximum time (ms) a single splash clip is allowed to play before forcing
+  // a transition to the next clip. Some source clips are very long (100s),
+  // which makes the splash feel stuck.
+  const MAX_CLIP_DURATION_MS = 15000;
 
   function loadAudioVolume() {
     try {
@@ -131,6 +135,35 @@
   // Track which video is currently playing
   let activeVideo = videoA;
   let standbyVideo = videoB;
+  let clipTimer = null;
+
+  function clearClipTimer() {
+    if (clipTimer) {
+      clearTimeout(clipTimer);
+      clipTimer = null;
+    }
+  }
+
+  function startClipTimer() {
+    clearClipTimer();
+    clipTimer = setTimeout(() => {
+      if (dismissed) return;
+      console.log('[splash] max clip duration reached, forcing transition');
+      // Simulate a natural clip end: remove listeners, advance, and cross-fade.
+      detachActiveListeners(activeVideo);
+      if (tilesReady) {
+        dismissSplash();
+      } else if (currentClip < playlist.length - 1) {
+        currentClip++;
+        crossFadeToNext();
+      } else {
+        playlist = buildPlaylist();
+        currentClip = 1;
+        preloadNext(currentClip);
+        crossFadeToNext();
+      }
+    }, MAX_CLIP_DURATION_MS);
+  }
 
   // ── Background music (loops continuously) ──
   const bgMusic = new Audio(MUSIC_URL);
@@ -228,6 +261,8 @@
   function dismissSplash() {
     if (dismissed) return;
     dismissed = true;
+    clearClipTimer();
+    activeVideo.pause();
     fadeOutMusic(2000); // Gradually mute music over 2 seconds
     overlay.classList.add('splash-fade-out');
     overlay.addEventListener('transitionend', () => {
@@ -318,6 +353,9 @@
       // Attach listeners to the new active video.
       attachActiveListeners(activeVideo);
 
+      // Start the per-clip timeout so long clips don't hold the splash.
+      startClipTimer();
+
       // Preload the clip after next into the new standby
       preloadNext(currentClip + 1);
 
@@ -358,8 +396,9 @@
     console.log('[splash] clip ended. currentClip=', currentClip, 'playlist length=', playlist.length);
     logVideoState('active ended', activeVideo);
 
-    // Remove listeners from current video to avoid duplicate calls
+    // Remove listeners and the per-clip timeout from the video that just ended.
     detachActiveListeners(video);
+    clearClipTimer();
 
     if (tilesReady) {
       // Tiles are loaded — dismiss now (at clip boundary)
@@ -404,8 +443,6 @@
   const readyCheckTimer = setInterval(() => {
     if (tilesReady) {
       clearInterval(readyCheckTimer);
-      // Pause the active video before fading out to free resources.
-      activeVideo.pause();
       dismissSplash();
     }
   }, CHECK_INTERVAL);
