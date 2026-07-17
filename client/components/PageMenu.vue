@@ -27,6 +27,9 @@ function resolveName(page) {
 }
 
 function handlePageClick(page) {
+  // Pages without a route do nothing when clicked
+  if (!page.route) return;
+
   if (page.route === route.path) {
     emit('navigate', page);
     return;

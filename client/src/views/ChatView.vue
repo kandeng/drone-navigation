@@ -97,22 +97,28 @@ function scrollToBottom() {
 
 onMounted(() => {
   registerPage({ id: 'aerial', nameKey: 'aerialview.page_aerial', route: '/' });
+  registerPage({ id: 'mesh', nameKey: 'aerialview.page_mesh' });
+  registerPage({ id: '3dgs', nameKey: 'aerialview.page_3dgs' });
   registerPage({ id: 'map', nameKey: 'aerialview.page_map', route: '/map' });
   registerPage({ id: 'satellite', nameKey: 'aerialview.page_satellite', route: '/satellite' });
-  registerPage({ id: 'chat', nameKey: 'aerialview.page_chat', route: '/chat' });
-  registerPage({ id: 'settings', nameKey: 'aerialview.page_settings', route: '/settings' });
   registerPage({ id: 'myspace', nameKey: 'aerialview.page_myspace', route: '/myspace' });
+  registerPage({ id: 'chat', nameKey: 'aerialview.page_chat', route: '/chat' });
   registerPage({ id: 'extensions', nameKey: 'aerialview.page_extensions', route: '/extensions' });
+  registerPage({ id: 'settings', nameKey: 'aerialview.page_settings', route: '/settings' });
+  registerPage({ id: 'customer_service', nameKey: 'aerialview.page_customer_service' });
 });
 
 onUnmounted(() => {
   unregisterPage('aerial');
+  unregisterPage('mesh');
+  unregisterPage('3dgs');
   unregisterPage('map');
   unregisterPage('satellite');
-  unregisterPage('chat');
-  unregisterPage('settings');
   unregisterPage('myspace');
+  unregisterPage('chat');
   unregisterPage('extensions');
+  unregisterPage('settings');
+  unregisterPage('customer_service');
 });
 </script>
 

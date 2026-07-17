@@ -1,14 +1,18 @@
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, h } from 'vue';
+import { ref, computed, onMounted, onUnmounted, h, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRoute } from 'vue-router';
 import ViewComposer from '@shared/_ViewComposer.vue';
 import { useDockRegistry } from '@shared-composables/useDockRegistry.js';
 import { usePageRegistry } from '@shared-composables/usePageRegistry.js';
+import { useProxyConfig } from '@shared-composables/useProxyConfig.js';
 import DockMenuButton from '@shared/DockMenuButton.vue';
 
 const { t } = useI18n();
 const { leftItems, registerLeft, clear } = useDockRegistry();
 const { pages, registerPage, unregisterPage } = usePageRegistry();
+const { proxyConfig, OS_OPTIONS } = useProxyConfig();
+const route = useRoute();
 
 /* ─── Left-column width drag ─── */
 const LEFT_MIN = 180;
@@ -158,26 +162,26 @@ function renderManifestHtml(ext) {
 /* ─── Detail view state ─── */
 const activeExtension = ref(null);
 
-/* ─── Proxy configuration state ─── */
-const proxyConfig = reactive({
-  os: 'Android',
-  httpHost: '127.0.0.1',
-  httpPort: 7897,
-  httpsHost: '127.0.0.1',
-  httpsPort: 7897,
-  ftpPort: 0,
-  socksHost: '127.0.0.1',
-  socksPort: 7897,
-  ignoreHosts: 'localhost, 127.0.0.1, 192.168.0.0/16, 10.0.0.',
-});
-
-const OS_OPTIONS = ['Android', 'iOS for iPhone', 'Windows', 'MacOS for MacBook', 'Linux'];
-
-function adjustPort(field, delta) {
-  const min = 0;
-  const max = 65535;
-  proxyConfig[field] = Math.min(max, Math.max(min, proxyConfig[field] + delta));
+/* ─── Deep-link support: /extensions?cat=software&ext=simple-squid-proxy ─── */
+function applyQueryParams() {
+  const cat = route.query.cat;
+  const ext = route.query.ext;
+  if (cat && EXTENSIONS_LIST.some((c) => c.id === cat)) {
+    selectedId.value = cat;
+  }
+  if (ext) {
+    const subs = EXTENSIONS_DATA[cat]?.subcategories || [];
+    for (const sub of subs) {
+      const item = sub.items.find((i) => i.id === ext);
+      if (item) {
+        activeExtension.value = { ...item, subcategoryLabel: t(sub.labelKey) };
+        return;
+      }
+    }
+  }
 }
+
+watch(() => route.query, applyQueryParams);
 
 function openExtension(ext) {
   activeExtension.value = ext;
@@ -196,6 +200,7 @@ function selectCategory(id) {
 const EXTENSIONS_LIST = [
   { id: 'scenic', labelKey: 'aerialview.extensions_scenic' },
   { id: 'swarm', labelKey: 'aerialview.extensions_swarm' },
+  { id: 'real_drone', labelKey: 'aerialview.extensions_real_drone' },
   { id: 'hardware', labelKey: 'aerialview.extensions_hardware' },
   { id: 'software', labelKey: 'aerialview.extensions_software' },
 ];
@@ -221,12 +226,15 @@ const currentSubcategories = computed(() => {
 /* ─── Page + dock registration ─── */
 onMounted(() => {
   registerPage({ id: 'aerial', nameKey: 'aerialview.page_aerial', route: '/' });
+  registerPage({ id: 'mesh', nameKey: 'aerialview.page_mesh' });
+  registerPage({ id: '3dgs', nameKey: 'aerialview.page_3dgs' });
   registerPage({ id: 'map', nameKey: 'aerialview.page_map', route: '/map' });
   registerPage({ id: 'satellite', nameKey: 'aerialview.page_satellite', route: '/satellite' });
-  registerPage({ id: 'chat', nameKey: 'aerialview.page_chat', route: '/chat' });
-  registerPage({ id: 'settings', nameKey: 'aerialview.page_settings', route: '/settings' });
   registerPage({ id: 'myspace', nameKey: 'aerialview.page_myspace', route: '/myspace' });
+  registerPage({ id: 'chat', nameKey: 'aerialview.page_chat', route: '/chat' });
   registerPage({ id: 'extensions', nameKey: 'aerialview.page_extensions', route: '/extensions' });
+  registerPage({ id: 'settings', nameKey: 'aerialview.page_settings', route: '/settings' });
+  registerPage({ id: 'customer_service', nameKey: 'aerialview.page_customer_service' });
 
   registerLeft({
     id: 'router',
@@ -236,17 +244,23 @@ onMounted(() => {
       pages,
     }),
   });
+
+  // Handle deep-link query params (e.g. /extensions?cat=software&ext=simple-squid-proxy)
+  applyQueryParams();
 });
 
 onUnmounted(() => {
   clear();
   unregisterPage('aerial');
+  unregisterPage('mesh');
+  unregisterPage('3dgs');
   unregisterPage('map');
   unregisterPage('satellite');
-  unregisterPage('chat');
-  unregisterPage('settings');
   unregisterPage('myspace');
+  unregisterPage('chat');
   unregisterPage('extensions');
+  unregisterPage('settings');
+  unregisterPage('customer_service');
 });
 </script>
 
@@ -325,6 +339,18 @@ onUnmounted(() => {
                 <select v-model="proxyConfig.os" class="proxy-select">
                   <option v-for="opt in OS_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
                 </select>
+              </div>
+
+              <!-- Login -->
+              <div class="proxy-row">
+                <label class="proxy-row__label">Login</label>
+                <input v-model="proxyConfig.login" type="text" class="proxy-input proxy-input--wide" />
+              </div>
+
+              <!-- Password -->
+              <div class="proxy-row">
+                <label class="proxy-row__label">Password</label>
+                <input v-model="proxyConfig.password" type="text" class="proxy-input proxy-input--wide" />
               </div>
 
               <!-- HTTP Proxy -->
@@ -559,14 +585,6 @@ onUnmounted(() => {
   font-weight: 700;
   color: #1d1d1f;
   text-align: center;
-}
-
-.extensions-manifest__content {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: 400;
-  color: #374151;
-  line-height: 1.6;
 }
 
 /* ─── Proxy config widgets ─── */

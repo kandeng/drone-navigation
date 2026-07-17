@@ -4,12 +4,14 @@ import { useI18n } from 'vue-i18n';
 import ViewComposer from '@shared/_ViewComposer.vue';
 import { useDockRegistry } from '@shared-composables/useDockRegistry.js';
 import { usePageRegistry } from '@shared-composables/usePageRegistry.js';
+import { useProxyConfig } from '@shared-composables/useProxyConfig.js';
 import DockMenuButton from '@shared/DockMenuButton.vue';
 import { useAppSettings } from '@shared-composables/useAppSettings.js';
 
 const { t, locale } = useI18n();
 const { leftItems, registerLeft, clear } = useDockRegistry();
 const { pages, registerPage, unregisterPage } = usePageRegistry();
+const { httpProxy, httpsProxy, noProxy } = useProxyConfig();
 const { settings, setFontFamily, setFontSize, setTakeoffAltitude, setSafetyBuffer, setDefaultLat, setDefaultLon, setDefaultAlt, setDefaultYaw, setDefaultPitch, setDefaultRoll, setEnterpriseProxy, resetFontDefaults, resetFlightDefaults, resetMediaDefaults, resetNetworkDefaults } = useAppSettings();
 
 /* ─── Left-column width drag ─── */
@@ -82,12 +84,15 @@ watch(locale, (newLocale) => {
 /* ─── Page + dock registration ─── */
 onMounted(() => {
   registerPage({ id: 'aerial', nameKey: 'aerialview.page_aerial', route: '/' });
+  registerPage({ id: 'mesh', nameKey: 'aerialview.page_mesh' });
+  registerPage({ id: '3dgs', nameKey: 'aerialview.page_3dgs' });
   registerPage({ id: 'map', nameKey: 'aerialview.page_map', route: '/map' });
   registerPage({ id: 'satellite', nameKey: 'aerialview.page_satellite', route: '/satellite' });
-  registerPage({ id: 'chat', nameKey: 'aerialview.page_chat', route: '/chat' });
-  registerPage({ id: 'settings', nameKey: 'aerialview.page_settings', route: '/settings' });
   registerPage({ id: 'myspace', nameKey: 'aerialview.page_myspace', route: '/myspace' });
+  registerPage({ id: 'chat', nameKey: 'aerialview.page_chat', route: '/chat' });
   registerPage({ id: 'extensions', nameKey: 'aerialview.page_extensions', route: '/extensions' });
+  registerPage({ id: 'settings', nameKey: 'aerialview.page_settings', route: '/settings' });
+  registerPage({ id: 'customer_service', nameKey: 'aerialview.page_customer_service' });
 
   registerLeft({
     id: 'router',
@@ -102,12 +107,15 @@ onMounted(() => {
 onUnmounted(() => {
   clear();
   unregisterPage('aerial');
+  unregisterPage('mesh');
+  unregisterPage('3dgs');
   unregisterPage('map');
   unregisterPage('satellite');
-  unregisterPage('chat');
-  unregisterPage('settings');
   unregisterPage('myspace');
+  unregisterPage('chat');
   unregisterPage('extensions');
+  unregisterPage('settings');
+  unregisterPage('customer_service');
 });
 </script>
 
@@ -232,21 +240,29 @@ onUnmounted(() => {
           <div v-if="selectedId === 'network'" class="settings-section">
             <h2 class="settings-section__title">{{ t('aerialview.settings_network') }}</h2>
 
+            <h3 class="settings-subsection__title">{{ t('aerialview.settings_enterprise_proxy') }}</h3>
+
+            <p class="settings-reminder">
+              {{ t('aerialview.settings_proxy_reminder_prefix') }}
+              <router-link to="/extensions?cat=software&ext=simple-squid-proxy" class="settings-reminder__link">
+                {{ t('aerialview.settings_proxy_reminder_link') }}
+              </router-link>
+              {{ t('aerialview.settings_proxy_reminder_suffix') }}
+            </p>
+
             <div class="settings-row">
-              <label class="settings-row__label">{{ t('aerialview.settings_enterprise_proxy') }}</label>
-              <input
-                type="text"
-                class="settings-input"
-                :value="settings.enterpriseProxy"
-                :placeholder="t('aerialview.settings_enterprise_proxy_placeholder')"
-                @input="setEnterpriseProxy($event.target.value)"
-              />
+              <label class="settings-row__label">HTTP_PROXY</label>
+              <span class="settings-value--readonly">{{ httpProxy }}</span>
             </div>
 
-            <div class="settings-row settings-row--actions">
-              <button class="settings-button settings-button--secondary" @click="resetNetworkDefaults">
-                {{ t('aerialview.settings_reset_defaults') }}
-              </button>
+            <div class="settings-row">
+              <label class="settings-row__label">HTTPS_PROXY</label>
+              <span class="settings-value--readonly">{{ httpsProxy }}</span>
+            </div>
+
+            <div class="settings-row">
+              <label class="settings-row__label">NO_PROXY</label>
+              <span class="settings-value--readonly">{{ noProxy }}</span>
             </div>
           </div>
 
@@ -554,5 +570,41 @@ onUnmounted(() => {
   text-align: right;
   font-size: 0.875rem;
   color: #6e6e73;
+}
+
+.settings-subsection__title {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.settings-reminder {
+  margin: 0 0 20px 0;
+  font-size: 0.82rem;
+  color: #6e6e73;
+  line-height: 1.5;
+}
+
+.settings-reminder__link {
+  color: #007aff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.settings-reminder__link:hover {
+  text-decoration: underline;
+}
+
+.settings-value--readonly {
+  flex: 1;
+  padding: 7px 12px;
+  border-radius: 6px;
+  background: #f5f5f7;
+  border: 1px solid #e5e5ea;
+  font-size: 0.82rem;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  color: #374151;
+  word-break: break-all;
 }
 </style>
