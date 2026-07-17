@@ -23,12 +23,15 @@
         <div id="splash-progress"></div>
         <div id="splash-bottom">
             <p id="splash-slogan"></p>
-            <div id="splash-qr">
-                <img id="splash-qr-img" alt="Download PWA" />
-            </div>
         </div>
     </div>
 
+    <script type="module">
+      // Expose the Google Maps loader to the plain splash script so it can
+      // verify the Google connection before allowing splash dismissal.
+      import { loadGoogleMaps } from '/src/2d_map/googleMaps.js';
+      window.__loadGoogleMapsForSplash = loadGoogleMaps;
+    </script>
     <script src="/splash.js"></script>
     <script type="module" src="src/cesium-main.js"></script>
     <script src="src/dronePhysics.js"></script>

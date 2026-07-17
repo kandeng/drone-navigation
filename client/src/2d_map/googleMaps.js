@@ -28,17 +28,19 @@ export function loadGoogleMaps() {
   mapsPromise = new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       delete window[CALLBACK_NAME];
+      mapsPromise = null;
       reject(new Error('Google Maps JavaScript API load timed out'));
     }, 15000);
 
     window[CALLBACK_NAME] = () => {
       clearTimeout(timeout);
+      delete window[CALLBACK_NAME];
       if (window.google?.maps?.Map) {
         resolve(window.google.maps);
       } else {
+        mapsPromise = null;
         reject(new Error('Google Maps initialized but Map is unavailable'));
       }
-      delete window[CALLBACK_NAME];
     };
 
     const script = document.createElement('script');
@@ -47,6 +49,7 @@ export function loadGoogleMaps() {
     script.onerror = () => {
       clearTimeout(timeout);
       delete window[CALLBACK_NAME];
+      mapsPromise = null;
       reject(new Error('Failed to load Google Maps JavaScript API'));
     };
     document.head.appendChild(script);

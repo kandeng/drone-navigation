@@ -72,10 +72,6 @@
     },
   };
 
-  // ── PWA install page URL (for QR code) ──
-  // When scanned, opens this page with PWA download instructions.
-  const pwaInstallUrl = window.location.origin + '/pwa-install.html';
-
   // ── Detect user language ──
   function detectLanguage() {
     // 1. Check localStorage (set by Settings page)
@@ -96,30 +92,41 @@
     sloganEl.textContent = i18n[lang].slogan;
   }
 
-  // ── Generate QR code ──
-  // Uses qrserver.com free API. For production, consider self-hosted QR generation.
-  const qrImg = document.getElementById('splash-qr-img');
-  if (qrImg) {
-    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(pwaInstallUrl);
-  }
-
-  // Make QR clickable → open PWA install page in new tab
-  const qrContainer = document.getElementById('splash-qr');
-  if (qrContainer) {
-    qrContainer.addEventListener('click', () => {
-      window.open(pwaInstallUrl, '_blank');
-    });
-  }
-
   // ── State ──
   let dismissed = false;
   let tilesReady = false;
+  let cesiumReadyFlag = false;
+  let googleReadyFlag = false;
+  let connectionErrorText = '';
+  let firstClipEnded = false;
 
   // ── Dual-video setup for seamless cross-fade ──
   // Two video elements: one visible (playing), one hidden (buffering next clip).
   const videoA = document.getElementById('splash-video');
   const overlay = document.getElementById('splash-overlay');
   if (!videoA || !overlay) return;
+
+  // ── Connection error overlay ──
+  // Centered red banner similar to the collision warning style.
+  const connectionErrorEl = document.createElement('div');
+  connectionErrorEl.className = 'splash-connection-error';
+  connectionErrorEl.style.display = 'none';
+  overlay.appendChild(connectionErrorEl);
+
+  function updateConnectionError() {
+    if (connectionErrorText) {
+      connectionErrorEl.innerHTML = '<span class="splash-connection-error__icon">⚠</span>' +
+        '<span class="splash-connection-error__text">' + connectionErrorText + '</span>';
+      connectionErrorEl.style.display = 'inline-flex';
+    } else {
+      connectionErrorEl.style.display = 'none';
+    }
+  }
+
+  function setConnectionError(text) {
+    connectionErrorText = text;
+    updateConnectionError();
+  }
 
   // Create a second video element for cross-fade transitions
   const videoB = document.createElement('video');
@@ -148,7 +155,9 @@
     clearClipTimer();
     clipTimer = setTimeout(() => {
       if (dismissed) return;
-      console.log('[splash] max clip duration reached, forcing transition');
+      console.log('[splash] max clip duration reached, forcing transition from', activeVideo.src?.split('/').pop());
+      logVideoState('timer active', activeVideo);
+      logVideoState('timer standby', standbyVideo);
       // Simulate a natural clip end: remove listeners, advance, and cross-fade.
       detachActiveListeners(activeVideo);
       if (tilesReady) {
@@ -207,7 +216,7 @@
    */
   function logVideoState(label, video) {
     console.log(
-      `[splash] ${label}: src=${video.src?.split('/').pop()}, readyState=${video.readyState}, currentTime=${video.currentTime.toFixed(2)}, paused=${video.paused}, ended=${video.ended}`
+      `[splash] ${label}: src=${video.src?.split('/').pop()}, readyState=${video.readyState}, currentTime=${video.currentTime.toFixed(2)}, paused=${video.paused}, ended=${video.ended}, opacity=${video.style.opacity}`
     );
   }
 
@@ -309,6 +318,8 @@
     video.addEventListener('stalled', onStalled);
     video.addEventListener('suspend', onSuspend);
     video.addEventListener('error', onError);
+    video.addEventListener('playing', () => logEvent('playing', video));
+    video.addEventListener('loadeddata', () => logEvent('loadeddata', video));
   }
 
   function detachActiveListeners(video) {
@@ -318,7 +329,11 @@
     video.removeEventListener('stalled', onStalled);
     video.removeEventListener('suspend', onSuspend);
     video.removeEventListener('error', onError);
+    video.removeEventListener('playing', () => logEvent('playing', video));
+    video.removeEventListener('loadeddata', () => logEvent('loadeddata', video));
   }
+
+
 
   /**
    * Cross-fade from active video to standby video (which has next clip ready).
@@ -327,14 +342,20 @@
     logVideoState('crossfade standby', standbyVideo);
 
     function doFade() {
+      if (!standbyVideo.src) {
+        console.error('[splash] crossfade aborted: standby video has no src');
+        return;
+      }
       // Ensure the next clip always starts from the very beginning.
       standbyVideo.currentTime = 0;
 
+      console.log('[splash] crossfade opacity before:', activeVideo.style.opacity, standbyVideo.style.opacity);
       // Swap visibility
       activeVideo.style.transition = 'opacity 0.4s ease';
       standbyVideo.style.transition = 'opacity 0.4s ease';
       activeVideo.style.opacity = '0';
       standbyVideo.style.opacity = '1';
+      console.log('[splash] crossfade opacity after:', activeVideo.style.opacity, standbyVideo.style.opacity);
 
       // Play the standby video
       console.log('[splash] playing standby clip', standbyVideo.src?.split('/').pop());
@@ -400,6 +421,13 @@
     detachActiveListeners(video);
     clearClipTimer();
 
+    // Connection errors are only shown after the first clip has finished,
+    // so the user gets at least one full video before seeing a red warning.
+    if (currentClip === 0) {
+      firstClipEnded = true;
+      updateConnectionStatus();
+    }
+
     if (tilesReady) {
       // Tiles are loaded — dismiss now (at clip boundary)
       dismissSplash();
@@ -436,20 +464,81 @@
   });
 
   // ── Periodic readiness check ──
-  // Check at a constant time step whether Cesium tiles are ready.
-  // If they are, dismiss the splash immediately (even mid-clip) so the
-  // user reaches the 3D Aerial page as soon as possible.
+  // Splash is dismissed only when Cesium tiles are ready AND both core
+  // connections (Cesium and Google) are available. If any connection is
+  // missing, the splash keeps looping videos and re-checks.
   const CHECK_INTERVAL = 500; // ms
   const readyCheckTimer = setInterval(() => {
-    if (tilesReady) {
+    if (tilesReady && cesiumReadyFlag && googleReadyFlag) {
       clearInterval(readyCheckTimer);
       dismissSplash();
     }
   }, CHECK_INTERVAL);
 
-  // ── Timeout fallback: dismiss after 60 seconds regardless ──
+  // ── Timeout fallback: only dismiss after 60 seconds if connections are ready ──
+  // If Cesium or Google is still unreachable, stay on the splash screen and
+  // keep looping the video clips.
   setTimeout(() => {
-    clearInterval(readyCheckTimer);
-    dismissSplash();
+    if (tilesReady && cesiumReadyFlag && googleReadyFlag) {
+      clearInterval(readyCheckTimer);
+      dismissSplash();
+    }
   }, 60000);
+
+  // ── Connection monitoring ──
+  // The splash stays visible and keeps looping videos until both Cesium and
+  // Google are reachable. We re-check every 8 seconds.
+  function checkCesium() {
+    if (cesiumReadyFlag) return true;
+    const ok = typeof window !== 'undefined' && window.Cesium && !!window.cesiumViewer;
+    if (ok) {
+      cesiumReadyFlag = true;
+      console.log('[splash] Cesium connection OK');
+    }
+    return ok;
+  }
+
+  async function checkGoogle() {
+    if (googleReadyFlag) return true;
+    if (typeof window === 'undefined' || !window.__loadGoogleMapsForSplash) {
+      return false;
+    }
+    try {
+      await window.__loadGoogleMapsForSplash();
+      googleReadyFlag = true;
+      console.log('[splash] Google connection OK');
+      return true;
+    } catch (err) {
+      console.warn('[splash] Google connection failed:', err);
+      return false;
+    }
+  }
+
+  async function updateConnectionStatus() {
+    if (dismissed) return;
+    const cesiumOk = checkCesium();
+    const googleOk = await checkGoogle();
+
+    if (cesiumOk && googleOk) {
+      setConnectionError('');
+    } else if (firstClipEnded) {
+      if (!cesiumOk && !googleOk) {
+        setConnectionError('Error: cannot connect to Cesium and Google.');
+      } else if (!cesiumOk) {
+        setConnectionError('Error: cannot connect to Cesium.');
+      } else {
+        setConnectionError('Error: cannot connect to Google.');
+      }
+    }
+  }
+
+  // Listen for the Cesium ready signal from cesium-main.js.
+  window.addEventListener('cesiumReady', () => {
+    cesiumReadyFlag = true;
+    updateConnectionStatus();
+  });
+
+  // Initial check and periodic re-check.
+  updateConnectionStatus();
+  setInterval(updateConnectionStatus, 8000);
 })();

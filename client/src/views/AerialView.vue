@@ -13,7 +13,9 @@ import { useFlightPhysics } from '@shared-composables/useFlightPhysics.js';
 import { useCameraPhysics } from '@shared-composables/useCameraPhysics.js';
 import { useDockRegistry } from '@shared-composables/useDockRegistry.js';
 import { usePageRegistry } from '@shared-composables/usePageRegistry.js';
+import { useConnectionStatus, checkGoogleConnection, checkCesiumConnection } from '@shared-composables/useConnectionStatus.js';
 import DockMenuButton from '@shared/DockMenuButton.vue';
+import ConnectionError from '@shared/ConnectionError.vue';
 
 const { t } = useI18n();
 
@@ -60,6 +62,18 @@ const isCollisionFrozen = ref(false);
 const collisionSurfaceNormal = ref(null);
 const MIN_SAFETY_BUFFER = 2.0; // meters
 const LOOK_AHEAD_TIME = 2.0; // seconds
+
+const { googleReady, cesiumReady, googleError, cesiumError } = useConnectionStatus();
+const connectionMessage = computed(() => {
+  if (!cesiumReady.value && !googleReady.value) {
+    return cesiumError.value || googleError.value || 'Cannot connect to Cesium and Google.';
+  }
+  if (!cesiumReady.value) return cesiumError.value || 'Cannot connect to Cesium.';
+  if (!googleReady.value) return googleError.value || 'Cannot connect to Google.';
+  return '';
+});
+const showConnectionError = computed(() => !cesiumReady.value || !googleReady.value);
+let connectionCheckInterval = null;
 
 const cesiumContainer = ref(null);
 const streetViewReady = ref(false);
@@ -323,6 +337,14 @@ onMounted(() => {
   startCameraKeyboard();
   syncCesiumCamera();
 
+  // Initial connection check and periodic re-check.
+  checkGoogleConnection();
+  checkCesiumConnection();
+  connectionCheckInterval = setInterval(() => {
+    checkGoogleConnection();
+    checkCesiumConnection();
+  }, 10000);
+
   // Register pages for the router menu
   registerPage({ id: 'aerial', nameKey: 'aerialview.page_aerial', route: '/' });
   registerPage({ id: 'map', nameKey: 'aerialview.page_map', route: '/map' });
@@ -426,6 +448,7 @@ onUnmounted(() => {
   stopFlightKeyboard();
   stopCameraKeyboard();
   if (rafId) cancelAnimationFrame(rafId);
+  if (connectionCheckInterval) clearInterval(connectionCheckInterval);
   clear();
   unregisterPage('aerial');
   unregisterPage('map');
@@ -469,6 +492,7 @@ onUnmounted(() => {
     </template>
 
     <template #top-overlay>
+      <ConnectionError :visible="showConnectionError" :message="connectionMessage" />
       <CollisionWarning :visible="isCollisionFrozen" />
       <div v-if="collisionPausedMessage" class="top-center-message top-center-message--warning">
         {{ collisionPausedMessage }}

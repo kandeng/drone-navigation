@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, onUnmounted, h, ref } from 'vue';
+import { onMounted, onUnmounted, h, ref, computed } from 'vue';
 import ViewComposer from '@shared/_ViewComposer.vue';
 import { MapView } from '@/2d_map/index.js';
 import { useDrone } from '@shared-composables/useDrone.js';
@@ -8,8 +8,10 @@ import { useFlightPhysics } from '@shared-composables/useFlightPhysics.js';
 import { useDockRegistry } from '@shared-composables/useDockRegistry.js';
 import { usePageRegistry } from '@shared-composables/usePageRegistry.js';
 import { useWaypointPicker } from '@shared-composables/useWaypointPicker.js';
+import { useConnectionStatus, checkGoogleConnection } from '@shared-composables/useConnectionStatus.js';
 import DockMenuButton from '@shared/DockMenuButton.vue';
 import WaypointButton from '@shared/WaypointButton.vue';
+import ConnectionError from '@shared/ConnectionError.vue';
 
 const { drone } = useDrone();
 const {
@@ -26,6 +28,11 @@ const { step: stepFlightPhysics } = useFlightPhysics();
 const { leftItems, rightItems, registerLeft, registerRight, clear } = useDockRegistry();
 const { pages, registerPage, unregisterPage } = usePageRegistry();
 const { isPicking, isPanelOpen, setPicked, openPanel, commitOrigin, setNearbyPois, setRouteResult, clearRouteResult, setRouteError, clearRouteError, pickedLocation, activeWaypointId, originDraft, waypoints } = useWaypointPicker();
+
+const { googleReady, googleError } = useConnectionStatus();
+const showConnectionError = computed(() => !googleReady.value);
+const connectionMessage = computed(() => googleError.value || 'Cannot connect to Google.');
+let connectionCheckInterval = null;
 
 function onMapCenterChange({ lat, lng }) {
   drone.lat = lat;
@@ -159,6 +166,12 @@ function loop() {
 onMounted(() => {
   startKeyboard();
 
+  // Initial connection check and periodic re-check.
+  checkGoogleConnection();
+  connectionCheckInterval = setInterval(() => {
+    checkGoogleConnection();
+  }, 10000);
+
   // Register pages for the router menu
   registerPage({ id: 'aerial', nameKey: 'aerialview.page_aerial', route: '/' });
   registerPage({ id: 'map', nameKey: 'aerialview.page_map', route: '/map' });
@@ -199,6 +212,7 @@ onMounted(() => {
 onUnmounted(() => {
   stopKeyboard();
   if (rafId) cancelAnimationFrame(rafId);
+  if (connectionCheckInterval) clearInterval(connectionCheckInterval);
   clear();
   unregisterPage('aerial');
   unregisterPage('map');
@@ -223,6 +237,9 @@ onUnmounted(() => {
     @flightStop="onFlightStop"
     @flightModeChange="onFlightModeChange"
   >
+    <template #top-overlay>
+      <ConnectionError :visible="showConnectionError" :message="connectionMessage" />
+    </template>
     <template #background>
       <MapView
         ref="mapViewRef"
