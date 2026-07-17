@@ -57,5 +57,12 @@
   "waypoint_poi_types": "类型",
   "waypoint_poi_rating": "评分",
   "waypoint_poi_vicinity": "地址",
-  "waypoint_poi_no_results": "POI 或路线"
+  "waypoint_poi_no_results": "POI 或路线",
+  "extensions_scenic": "风景游览",
+  "extensions_swarm": "机群协同",
+  "extensions_hardware": "硬件设备",
+  "extensions_software": "软件工具",
+  "extensions_search_placeholder": "搜索扩展...",
+  "extensions_sub_network": "网络",
+  "extensions_simple_squid_proxy": "Simple Squid 代理"
 }

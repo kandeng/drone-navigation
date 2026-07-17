@@ -57,5 +57,12 @@
   "waypoint_poi_types": "Types",
   "waypoint_poi_rating": "Rating",
   "waypoint_poi_vicinity": "Address",
-  "waypoint_poi_no_results": "POIs or Route"
+  "waypoint_poi_no_results": "POIs or Route",
+  "extensions_scenic": "Scenic Tour",
+  "extensions_swarm": "Swarm Coordination",
+  "extensions_hardware": "Hardware",
+  "extensions_software": "Software",
+  "extensions_search_placeholder": "Search extensions...",
+  "extensions_sub_network": "Network",
+  "extensions_simple_squid_proxy": "Simple Squid Proxy"
 }

@@ -15,7 +15,11 @@ function initDroneControl(startPosition) {
     droneState.position = startPosition;
 
     // Hook into Cesium's frame clock update rendering ticker
-    viewer.scene.preRender.addEventListener(updateDroneFrame);
+    if (!window.cesiumViewer) {
+        console.warn('[dronePhysics] cesiumViewer not yet available, deferring.');
+        return;
+    }
+    window.cesiumViewer.scene.preRender.addEventListener(updateDroneFrame);
 }
 
 function updateDroneFrame(scene, time) {
@@ -64,7 +68,8 @@ function updateDroneFrame(scene, time) {
     Cesium.Cartesian3.add(droneState.position, moveOffset, droneState.position);
 
     // 4. Update Camera view matrix
-    viewer.camera.setView({
+    if (!window.cesiumViewer || !window.cesiumViewer.camera) return;
+    window.cesiumViewer.camera.setView({
         destination: droneState.position,
         orientation: {
             heading: droneState.heading,

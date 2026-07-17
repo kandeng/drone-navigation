@@ -85,25 +85,39 @@ async function loadArena() {
     }
 
     if (typeof initDroneControl === 'function') {
-        initDroneControl(initialPosition);
+        try {
+            initDroneControl(initialPosition);
+        } catch (e) {
+            console.warn('[Cesium] initDroneControl failed:', e);
+        }
     }
 
     // ── Wait for actual tile downloads to settle ──
     // tileLoadProgressEvent fires with the number of tiles currently loading.
     // We wait until the queue reaches 0 (all visible tiles downloaded).
+    // If tileLoadProgressEvent is unavailable (e.g. partial Cesium init),
+    // we proceed immediately after a short delay.
+    const tileLoadProgress = viewer.scene?.tileLoadProgressEvent;
+
     await new Promise((resolve) => {
         let settled = false;
+
+        if (!tileLoadProgress) {
+            console.warn('[Cesium] tileLoadProgressEvent unavailable, waiting 3s.');
+            setTimeout(() => resolve(), 3000);
+            return;
+        }
 
         function onProgress(queueLength) {
             if (queueLength === 0 && !settled) {
                 settled = true;
-                viewer.scene.tileLoadProgressEvent.removeEventListener(onProgress);
+                tileLoadProgress.removeEventListener(onProgress);
                 console.log('[Cesium] All visible tiles downloaded.');
                 resolve();
             }
         }
 
-        viewer.scene.tileLoadProgressEvent.addEventListener(onProgress);
+        tileLoadProgress.addEventListener(onProgress);
 
         // If the queue is already 0 (e.g., cached), resolve immediately
         // after one frame to give Cesium a chance to start loading.
@@ -114,7 +128,7 @@ async function loadArena() {
                     if (!settled) {
                         // Force resolve after 15s even if tiles never finish
                         settled = true;
-                        viewer.scene.tileLoadProgressEvent.removeEventListener(onProgress);
+                        tileLoadProgress.removeEventListener(onProgress);
                         console.warn('[Cesium] Tile load timeout (15s), proceeding.');
                         resolve();
                     }
