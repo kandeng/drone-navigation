@@ -44,6 +44,17 @@
     return 0.9;
   }
 
+  function saveAudioVolume(vol) {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      parsed.audioVolume = Math.max(0, Math.min(1, vol));
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(parsed));
+    } catch {
+      // ignore
+    }
+  }
+
   function shuffleArray(arr) {
     const copy = arr.slice();
     for (let i = copy.length - 1; i > 0; i--) {
@@ -177,7 +188,8 @@
   // ── Background music (loops continuously) ──
   const bgMusic = new Audio(MUSIC_URL);
   bgMusic.loop = true;
-  bgMusic.volume = loadAudioVolume();
+  const initialVolume = loadAudioVolume();
+  bgMusic.volume = initialVolume;
   bgMusic.play().catch(() => {
     // Browsers may block autoplay until user interaction.
     // The music will start once the user clicks or taps anywhere.
@@ -189,6 +201,26 @@
     document.addEventListener('click', startMusic);
     document.addEventListener('touchstart', startMusic);
   });
+
+  // ── Volume slider ──
+  const volumeSlider = document.getElementById('splash-volume-slider');
+  if (volumeSlider) {
+    volumeSlider.value = Math.round(initialVolume * 100);
+    volumeSlider.addEventListener('input', (e) => {
+      const vol = Math.max(0, Math.min(1, Number(e.target.value) / 100));
+      bgMusic.volume = vol;
+      saveAudioVolume(vol);
+    });
+    // Interacting with the slider also satisfies the browser's autoplay gesture
+    // requirement, so start playback if it was blocked.
+    const unlockAudio = () => {
+      if (bgMusic.paused) {
+        bgMusic.play().catch(() => {});
+      }
+    };
+    volumeSlider.addEventListener('click', unlockAudio);
+    volumeSlider.addEventListener('touchstart', unlockAudio);
+  }
 
   /**
    * Fade out background music over the given duration (ms).
