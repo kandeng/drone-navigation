@@ -84,7 +84,7 @@ watch(locale, (newLocale) => {
 /* ─── Page + dock registration ─── */
 onMounted(() => {
   registerPage({ id: 'aerial', nameKey: 'aerialview.page_aerial', route: '/' });
-  registerPage({ id: 'mesh', nameKey: 'aerialview.page_mesh' });
+  registerPage({ id: 'mesh', nameKey: 'aerialview.page_mesh', route: '/mesh' });
   registerPage({ id: '3dgs', nameKey: 'aerialview.page_3dgs' });
   registerPage({ id: 'map', nameKey: 'aerialview.page_map', route: '/map' });
   registerPage({ id: 'satellite', nameKey: 'aerialview.page_satellite', route: '/satellite' });

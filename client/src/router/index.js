@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import AerialView from '@/views/AerialView.vue';
+import MeshView from '@/views/MeshView.vue';
 import Map2DView from '@/views/Map2DView.vue';
 import Satellite2DView from '@/views/Satellite2DView.vue';
 import ChatView from '@/views/ChatView.vue';
@@ -12,6 +13,11 @@ const routes = [
     path: '/',
     name: 'Aerial',
     component: AerialView,
+  },
+  {
+    path: '/mesh',
+    name: 'Mesh3D',
+    component: MeshView,
   },
   {
     path: '/map',

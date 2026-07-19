@@ -1,0 +1,17 @@
+{
+    # Leaving auto_https enabled lets Caddy automatically fetch Let's Encrypt certificates.
+}
+
+drone-navigation.com, www.drone-navigation.com {
+    # Serve the production build copied from client/dist
+    root * /var/www/drone-navigation/client/dist
+
+    # Static file serving
+    file_server
+
+    # gzip/brotli compression
+    encode gzip zstd
+
+    # SPA fallback: serve index.html for any client-side route (e.g., /mesh, /map)
+    try_files {path} /index.html
+}

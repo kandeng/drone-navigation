@@ -2,6 +2,12 @@
 client/config.json
 server/config.json
 
+# Sensitive screenshots containing tokens or credentials
+deployment/assets/cesium.png
+
+# Runtime/generated files
+deployment/acert
+
 # Dependencies
 node_modules/
 .pnp
