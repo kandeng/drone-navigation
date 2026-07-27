@@ -1,14 +1,14 @@
 {
   "meta": {
     "lastTouchedVersion": "2026.7.1",
-    "lastTouchedAt": "2026-07-01T08:20:00.000Z"
+    "lastTouchedAt": "2026-07-27T11:15:00.000Z"
   },
   "models": {
     "mode": "merge",
     "providers": {
       "bailian-token-plan": {
         "baseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic",
-        "apiKey": "YOUR_API_KEY",
+        "apiKey": "sk-sp-H.EEDDR.0uKV.MEUCIQDfLFwLoGT3OCSsDaUoQICfs5-mrRlXJSL_jP9GZsf2ggIgbbm-n9x8eruL3xUpGNIJ_3vvgk0vvDihUWDXHx7kOE4",
         "api": "anthropic-messages",
         "models": [
           {
@@ -19,7 +19,7 @@
             "contextWindow": 983616,
             "maxTokens": 131072,
             "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
-            "compat": { "thinkingFormat": "openai" }
+            "compat": { "thinkingFormat": "qwen" }
           },
           {
             "id": "qwen3.7-max",
@@ -93,10 +93,21 @@
     "mode": "local",
     "auth": {
       "mode": "token",
-      "token": "YOUR_OPENCLAW_TOKEN"
+      "token": "openclaw-drone-navigation"
     },
     "port": 18789,
-    "bind": "loopback"
+    "bind": "loopback",
+    "trustedProxies": [
+      "127.0.0.1"
+    ],
+    "controlUi": {
+      "allowInsecureAuth": true,
+      "dangerouslyDisableDeviceAuth": true,
+      "allowedOrigins": [
+        "https://drone-navigation.com",
+        "https://www.drone-navigation.com",
+        "https://cdn.drone-navigation.com"
+      ]
+    }
   }
 }
- 
