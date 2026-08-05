@@ -30,6 +30,21 @@
 
 - 激活 conda 环境：`conda activate drone-navigation`
   （环境中已包含 cflib；若没有则 `pip install cflib`）
+- 在 Windows / WSL2 上，需要先从管理员 PowerShell 把 Crazyradio PA
+  传入 WSL。若当前是普通 PowerShell，先用
+  `Start-Process powershell -Verb RunAs` 打开管理员窗口，然后运行：
+
+  ```powershell
+  winget install usbipd
+  $busid = ((usbipd list | Select-String '1915:7777' | Select-Object -First 1).Line -split '\s+')[0]
+  if (-not $busid) { throw "未找到 Crazyradio PA。请先插入设备，再重新运行 usbipd list。" }
+  usbipd bind --busid $busid          # 一次性
+  usbipd attach --wsl --busid $busid  # 每次重新插拔 / 重启 WSL 后都要重跑
+  ```
+
+  如果 `bind` 提示可能需要 `--force`，只重新运行这一行：
+  `usbipd bind --force --busid $busid`，然后再 attach。`Access denied`
+  表示 PowerShell 不是管理员权限。
 - 在 Linux 上安装 USB 权限规则，以便免 `sudo` 访问 ——
   具体命令见 `deployment/README.md` §5.1（各平台 README 中也有）。
   完成后拔插一次 Crazyradio。
@@ -42,6 +57,63 @@
   该常量改为一致（`radio://0/<信道>/2M/<地址>`）。
 - 通过 USB 线读取当前身份：
   `python ../crazyflie_bridge/provision_drone.py --read-only`
+
+**cflib 0.1.32 + CRTP v6 固件兼容补丁**
+
+某些定制 CRTP v6 固件能回应无线扫描，但无法完成 `cflib 0.1.32`
+默认的平台版本握手。典型现象：
+
+- `cflib.crtp.scan_interfaces()` 能找到 `radio://0/80/2M`
+- `python 01_connect.py` 卡在 `SyncCrazyflie.open_link()`
+- 分阶段诊断能到 `link_established`，但参数 TOC 读取可能报
+  `struct.error: unpack requires a buffer of 5 bytes`
+
+遇到这种固件时，用下面的运行时 wrapper 执行简单脚本。它会在 TOC
+刷新前把协议版本固定为 6；不会修改 `cflib`，不会改脚本，也不会启动
+相机 / MediaMTX 流水线。
+
+```bash
+cd ~/drone-navigation/extension/simple_crazyflie
+conda activate drone-navigation
+
+run_crazyflie_v6 () {
+  python - "$1" <<'PY'
+import runpy
+import sys
+
+import cflib.crtp
+from cflib.crazyflie import Crazyflie
+
+script = sys.argv[1]
+
+def _crtp_v6_setup(self):
+    self.platform._protocolVersion = 6
+    self.log.refresh_toc(self._log_toc_updated_cb, self._toc_cache)
+
+Crazyflie._start_connection_setup = _crtp_v6_setup
+cflib.crtp.init_drivers()
+runpy.run_path(script, run_name="__main__")
+PY
+}
+
+# 先做不飞行的电池检查：
+run_crazyflie_v6 01_connect.py
+
+# 可选：检查螺旋桨：
+run_crazyflie_v6 03_propellers.py
+
+# 实际起飞 / 悬停 / 降落：
+run_crazyflie_v6 04_flying.py
+```
+
+实飞时 Crazyflie 本体必须用电池供电，并拔掉 MicroUSB 线。WSL 中只应
+接入 Crazyradio PA。快速检查：
+
+```bash
+lsusb | grep -E '1915:7777|0483:5740'
+# 预期看到 1915:7777，这是 Crazyradio。
+# 如果看到 0483:5740，说明 Crazyflie 的 MicroUSB 线还接着。
+```
 
 ---
 

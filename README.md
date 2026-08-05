@@ -220,14 +220,27 @@ Browser checklist at `http://localhost:5173`:
 
 **New to the Crazyflie?** Start with [`extension/simple_crazyflie/README.md`](extension/simple_crazyflie/README.md) — it walks you through connecting your computer to the drone, reading its telemetry, and then flying it, one step at a time.
 
-WSL2 cannot see USB devices by default. Pass the **Crazyradio PA** into WSL with usbipd-win — in **Windows PowerShell (Administrator)**:
+WSL2 cannot see USB devices by default. Pass the **Crazyradio PA** into WSL
+with usbipd-win. If you are in a normal PowerShell window, first open an
+administrator one:
+
+```powershell
+Start-Process powershell -Verb RunAs
+```
+
+Then run this in **Windows PowerShell (Administrator)**:
 
 ```powershell
 winget install usbipd
-usbipd list                          # find the Crazyradio PA (Nordic, VID 1915 PID 7777) -> note BUSID
-usbipd bind --busid <BUSID>          # one-time, persists across reboots
-usbipd attach --wsl --busid <BUSID>  # repeat after each replug / WSL restart
+$busid = ((usbipd list | Select-String '1915:7777' | Select-Object -First 1).Line -split '\s+')[0]
+if (-not $busid) { throw "Crazyradio PA not found. Plug it in, then run usbipd list again." }
+usbipd bind --busid $busid          # one-time, persists across reboots
+usbipd attach --wsl --busid $busid  # repeat after each replug / WSL restart
 ```
+
+If `bind` warns that an unknown USB filter may require force, rerun only the
+bind line as `usbipd bind --force --busid $busid`, then run the attach line
+again. `Access denied` means the PowerShell window is not elevated.
 
 In **WSL**, grant user access (one-time), then verify:
 
@@ -239,6 +252,12 @@ lsusb | grep 1915        # Nordic Semiconductor — the dongle is visible
 # If WSL has no udev running (no systemd): sudo chmod 0666 /dev/bus/usb/<bus>/<dev>
 # (find <bus>/<dev> via lsusb)
 ```
+
+If the radio scan sees the drone but `extension/simple_crazyflie/01_connect.py`
+hangs in `SyncCrazyflie.open_link()`, use the CRTP v6 compatibility wrapper in
+[`extension/simple_crazyflie/README.md`](extension/simple_crazyflie/README.md).
+It is a runtime `cflib 0.1.32` workaround for this custom firmware and does not
+start the camera pipeline.
 
 Find the drone's camera IP: browse `http://192.168.0.x` candidates from a Windows browser (`nmap -sn 192.168.0.0/24` inside WSL lists them) until one shows the AI-Deck livestream — WSL can reach it directly (outbound LAN works).
 

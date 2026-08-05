@@ -220,14 +220,26 @@ curl http://localhost:5173/_matrix/client/versions # 经 Vite 代理
 
 **第一次接触 Crazyflie？** 请从 [`extension/simple_crazyflie/README.md`](extension/simple_crazyflie/README.md)（英文）开始 —— 它会一步步带你完成：从电脑连接无人机、读取遥测数据，再到让它飞起来。
 
-WSL2 默认看不到 USB 设备。用 usbipd-win 把 **Crazyradio PA** 传入 WSL —— 在 **Windows PowerShell（管理员）** 中：
+WSL2 默认看不到 USB 设备。用 usbipd-win 把 **Crazyradio PA** 传入 WSL。
+如果当前是普通 PowerShell，先打开管理员窗口：
+
+```powershell
+Start-Process powershell -Verb RunAs
+```
+
+然后在 **Windows PowerShell（管理员）** 中运行：
 
 ```powershell
 winget install usbipd
-usbipd list                          # 找到 Crazyradio PA（Nordic，VID 1915 PID 7777）-> 记下 BUSID
-usbipd bind --busid <BUSID>          # 一次性，重启后仍有效
-usbipd attach --wsl --busid <BUSID>  # 每次重新插拔 / 重启 WSL 后都要重跑
+$busid = ((usbipd list | Select-String '1915:7777' | Select-Object -First 1).Line -split '\s+')[0]
+if (-not $busid) { throw "未找到 Crazyradio PA。请先插入设备，再重新运行 usbipd list。" }
+usbipd bind --busid $busid          # 一次性，重启后仍有效
+usbipd attach --wsl --busid $busid  # 每次重新插拔 / 重启 WSL 后都要重跑
 ```
+
+如果 `bind` 提示未知 USB filter 可能需要 force，只重新运行这一行：
+`usbipd bind --force --busid $busid`，然后再运行 attach 行。`Access denied`
+表示 PowerShell 不是管理员权限。
 
 在 **WSL** 中授予用户访问权限（一次性），然后验证：
 
@@ -239,6 +251,12 @@ lsusb | grep 1915        # Nordic Semiconductor —— 能看到加密狗
 # 若 WSL 没有运行 udev（无 systemd）：sudo chmod 0666 /dev/bus/usb/<bus>/<dev>
 # （<bus>/<dev> 通过 lsusb 查找）
 ```
+
+如果无线扫描能看到无人机，但 `extension/simple_crazyflie/01_connect.py`
+卡在 `SyncCrazyflie.open_link()`，请使用
+[`extension/simple_crazyflie/README-zh.md`](extension/simple_crazyflie/README-zh.md)
+里的 CRTP v6 兼容 wrapper。它只是针对该定制固件的 `cflib 0.1.32`
+运行时补丁，不会启动相机流水线。
 
 查找无人机摄像头 IP：在 Windows 浏览器中逐个尝试 `http://192.168.0.x` 候选地址（在 WSL 内用 `nmap -sn 192.168.0.0/24` 列出）直到出现 AI-Deck 直播画面 —— WSL 可以直接访问它（出站 LAN 正常）。
 

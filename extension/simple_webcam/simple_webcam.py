@@ -60,7 +60,8 @@ def open_working_webcam():
     candidates = [int(WEBCAM_DEVICE)] if WEBCAM_DEVICE is not None else [0, 2, 1, 3]
     for idx in candidates:
         path = f"/dev/video{idx}"
-        if not os.path.exists(path):
+        # On Windows there are no /dev/video* nodes — let cv2 probe directly.
+        if os.name == "posix" and not os.path.exists(path):
             continue
         cap = cv2.VideoCapture(idx)
         if not cap.isOpened():

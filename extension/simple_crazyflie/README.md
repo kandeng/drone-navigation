@@ -32,6 +32,21 @@ To assemble the crazyflie 2.1, please refer to the official guideline
 
 - Activate the conda env: `conda activate drone-navigation`
   (it already has cflib; if not, `pip install cflib`)
+- On Windows / WSL2, pass the Crazyradio PA into WSL from an administrator
+  PowerShell window. From a normal PowerShell, open the elevated window with
+  `Start-Process powershell -Verb RunAs`, then run:
+
+  ```powershell
+  winget install usbipd
+  $busid = ((usbipd list | Select-String '1915:7777' | Select-Object -First 1).Line -split '\s+')[0]
+  if (-not $busid) { throw "Crazyradio PA not found. Plug it in, then run usbipd list again." }
+  usbipd bind --busid $busid          # one-time
+  usbipd attach --wsl --busid $busid  # repeat after each replug / WSL restart
+  ```
+
+  If `bind` warns that `--force` may be required, rerun only the bind line as
+  `usbipd bind --force --busid $busid`, then attach again. `Access denied`
+  means the PowerShell window is not elevated.
 - On Linux, install the USB permission rule so no `sudo` is needed — the
   exact command is in `deployment/README.md` §5.1 (also in the platform
   READMEs). Unplug/replug the Crazyradio afterwards.
@@ -44,6 +59,63 @@ To assemble the crazyflie 2.1, please refer to the official guideline
   the constant in all three scripts to match (`radio://0/<channel>/2M/<address>`).
 - To read the current identity over a USB cable:
   `python ../crazyflie_bridge/provision_drone.py --read-only`
+
+**cflib 0.1.32 + CRTP v6 firmware compatibility**
+
+Some custom CRTP v6 firmware builds answer the radio scan but do not complete
+`cflib 0.1.32`'s default platform-version handshake. Typical symptoms:
+
+- `cflib.crtp.scan_interfaces()` finds `radio://0/80/2M`
+- `python 01_connect.py` hangs in `SyncCrazyflie.open_link()`
+- a staged diagnostic reaches `link_established`, then the param TOC fetch may
+  fail with `struct.error: unpack requires a buffer of 5 bytes`
+
+For this firmware, run the simple scripts through this runtime wrapper. It pins
+the protocol version to 6 before the TOC refresh; it does not modify `cflib`,
+does not edit the scripts, and does not start the camera / MediaMTX pipeline.
+
+```bash
+cd ~/drone-navigation/extension/simple_crazyflie
+conda activate drone-navigation
+
+run_crazyflie_v6 () {
+  python - "$1" <<'PY'
+import runpy
+import sys
+
+import cflib.crtp
+from cflib.crazyflie import Crazyflie
+
+script = sys.argv[1]
+
+def _crtp_v6_setup(self):
+    self.platform._protocolVersion = 6
+    self.log.refresh_toc(self._log_toc_updated_cb, self._toc_cache)
+
+Crazyflie._start_connection_setup = _crtp_v6_setup
+cflib.crtp.init_drivers()
+runpy.run_path(script, run_name="__main__")
+PY
+}
+
+# No-flight battery check first:
+run_crazyflie_v6 01_connect.py
+
+# Optional propeller check:
+run_crazyflie_v6 03_propellers.py
+
+# Actual takeoff / hover / landing:
+run_crazyflie_v6 04_flying.py
+```
+
+For real flight, the Crazyflie itself must be battery-powered and unplugged from
+MicroUSB. Only the Crazyradio PA should be attached to WSL. A quick check:
+
+```bash
+lsusb | grep -E '1915:7777|0483:5740'
+# Expect 1915:7777 for the Crazyradio.
+# If 0483:5740 is present, the Crazyflie MicroUSB cable is still attached.
+```
 
 ---
 
