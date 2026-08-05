@@ -68,42 +68,23 @@
 - 分阶段诊断能到 `link_established`，但参数 TOC 读取可能报
   `struct.error: unpack requires a buffer of 5 bytes`
 
-遇到这种固件时，用下面的运行时 wrapper 执行简单脚本。它会在 TOC
-刷新前把协议版本固定为 6；不会修改 `cflib`，不会改脚本，也不会启动
-相机 / MediaMTX 流水线。
+遇到这种固件时，通过 `run_crazyflie_v6.py` 执行简单脚本。它会把协议
+版本固定为 6，通过一次短连接清理残留日志块，跳过内存枚举，只读取这些
+脚本使用的 Log 和 Param TOC；不会修改 `cflib`，也不会启动相机 /
+MediaMTX 流水线。
 
 ```bash
 cd ~/drone-navigation/extension/simple_crazyflie
 conda activate drone-navigation
 
-run_crazyflie_v6 () {
-  python - "$1" <<'PY'
-import runpy
-import sys
-
-import cflib.crtp
-from cflib.crazyflie import Crazyflie
-
-script = sys.argv[1]
-
-def _crtp_v6_setup(self):
-    self.platform._protocolVersion = 6
-    self.log.refresh_toc(self._log_toc_updated_cb, self._toc_cache)
-
-Crazyflie._start_connection_setup = _crtp_v6_setup
-cflib.crtp.init_drivers()
-runpy.run_path(script, run_name="__main__")
-PY
-}
-
 # 先做不飞行的电池检查：
-run_crazyflie_v6 01_connect.py
+python run_crazyflie_v6.py 01_connect.py
 
 # 可选：检查螺旋桨：
-run_crazyflie_v6 03_propellers.py
+python run_crazyflie_v6.py 03_propellers.py
 
 # 实际起飞 / 悬停 / 降落：
-run_crazyflie_v6 04_flying.py
+python run_crazyflie_v6.py 04_flying.py
 ```
 
 实飞时 Crazyflie 本体必须用电池供电，并拔掉 MicroUSB 线。WSL 中只应
@@ -146,29 +127,14 @@ if grep -q '0483:5740' <<< "$usb_devices"; then
 fi
 
 run_crazyflie_v6 () {
-  conda run --no-capture-output -n drone-navigation python -u - "$1" <<'PY'
-import runpy
-import sys
-
-import cflib.crtp
-from cflib.crazyflie import Crazyflie
-
-script = sys.argv[1]
-
-def _crtp_v6_setup(self):
-    self.platform._protocolVersion = 6
-    self.log.refresh_toc(self._log_toc_updated_cb, self._toc_cache)
-
-Crazyflie._start_connection_setup = _crtp_v6_setup
-cflib.crtp.init_drivers()
-runpy.run_path(script, run_name="__main__")
-PY
+  conda run --no-capture-output -n drone-navigation \
+    python -u run_crazyflie_v6.py "$1"
 }
 
 run_crazyflie_v6 01_connect.py
 
 echo
-read -r -p "确认电池 >= 3.9 V、螺旋桨正确、场地空旷。输入 FLY 开始： " confirm
+read -r -p "确认电池 >= 3.6 V、螺旋桨正确、场地空旷。输入 FLY 开始： " confirm
 if [ "$confirm" != "FLY" ]; then
   echo "已取消飞行。"
   exit 1
@@ -187,7 +153,7 @@ run_crazyflie_v6 04_flying.py
 
 ```
 Link open: True
-Battery: 3.97 V  (fly only if >= 3.9 V)
+Battery: 3.97 V  (fly only if >= 3.6 V)
 Disconnected cleanly.
 ```
 
@@ -278,7 +244,7 @@ CCW 桨叶形状不同）。若某电机完全不转，检查其接线 —— �
 
 **先做安全检查：**
 
-- 电池 ≥ 3.9 V（第 1 步会告诉你）
+- 电池 ≥ 3.6 V（第 1 步会告诉你）
 - 各方向至少 2 米净空，无人员、宠物
 - **用电池飞行** —— 拔掉所有 USB 线（ tether 会把无人机拽下来）
 - 手指放在 `Ctrl+C` 附近，并清楚无人机电源开关的位置

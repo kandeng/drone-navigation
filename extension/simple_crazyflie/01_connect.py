@@ -15,6 +15,7 @@ from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
 #   radio://<dongle>/<channel>/<datarate>/<address>
 # Adjust if the drone was provisioned to a different channel/address.
 URI = 'radio://0/80/2M/E7E7E7E7E7'
+MIN_FLIGHT_VOLTAGE = 3.6
 
 # Only output errors from the logging framework
 logging.basicConfig(level=logging.ERROR)
@@ -60,6 +61,6 @@ if __name__ == '__main__':
         print('Link open:', scf.is_link_open())
         # Battery via log subscription (this firmware has no pm.vbat param)
         vbat = read_vbat(scf.cf)
-        print(f'Battery: {vbat:.2f} V  (fly only if >= 3.9 V)')
+        print(f'Battery: {vbat:.2f} V  (fly only if >= {MIN_FLIGHT_VOLTAGE:.1f} V)')
 
     print('Disconnected cleanly.')

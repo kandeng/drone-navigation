@@ -70,42 +70,23 @@ Some custom CRTP v6 firmware builds answer the radio scan but do not complete
 - a staged diagnostic reaches `link_established`, then the param TOC fetch may
   fail with `struct.error: unpack requires a buffer of 5 bytes`
 
-For this firmware, run the simple scripts through this runtime wrapper. It pins
-the protocol version to 6 before the TOC refresh; it does not modify `cflib`,
-does not edit the scripts, and does not start the camera / MediaMTX pipeline.
+For this firmware, run the simple scripts through `run_crazyflie_v6.py`. It
+pins the protocol version to 6, resets stale log blocks in a short preliminary
+connection, skips memory enumeration, and fetches the Log and Param TOCs. It does
+not modify `cflib` or start the camera / MediaMTX pipeline.
 
 ```bash
 cd ~/drone-navigation/extension/simple_crazyflie
 conda activate drone-navigation
 
-run_crazyflie_v6 () {
-  python - "$1" <<'PY'
-import runpy
-import sys
-
-import cflib.crtp
-from cflib.crazyflie import Crazyflie
-
-script = sys.argv[1]
-
-def _crtp_v6_setup(self):
-    self.platform._protocolVersion = 6
-    self.log.refresh_toc(self._log_toc_updated_cb, self._toc_cache)
-
-Crazyflie._start_connection_setup = _crtp_v6_setup
-cflib.crtp.init_drivers()
-runpy.run_path(script, run_name="__main__")
-PY
-}
-
 # No-flight battery check first:
-run_crazyflie_v6 01_connect.py
+python run_crazyflie_v6.py 01_connect.py
 
 # Optional propeller check:
-run_crazyflie_v6 03_propellers.py
+python run_crazyflie_v6.py 03_propellers.py
 
 # Actual takeoff / hover / landing:
-run_crazyflie_v6 04_flying.py
+python run_crazyflie_v6.py 04_flying.py
 ```
 
 For real flight, the Crazyflie itself must be battery-powered and unplugged from
@@ -149,29 +130,14 @@ if grep -q '0483:5740' <<< "$usb_devices"; then
 fi
 
 run_crazyflie_v6 () {
-  conda run --no-capture-output -n drone-navigation python -u - "$1" <<'PY'
-import runpy
-import sys
-
-import cflib.crtp
-from cflib.crazyflie import Crazyflie
-
-script = sys.argv[1]
-
-def _crtp_v6_setup(self):
-    self.platform._protocolVersion = 6
-    self.log.refresh_toc(self._log_toc_updated_cb, self._toc_cache)
-
-Crazyflie._start_connection_setup = _crtp_v6_setup
-cflib.crtp.init_drivers()
-runpy.run_path(script, run_name="__main__")
-PY
+  conda run --no-capture-output -n drone-navigation \
+    python -u run_crazyflie_v6.py "$1"
 }
 
 run_crazyflie_v6 01_connect.py
 
 echo
-read -r -p "Confirm battery >= 3.9 V, props correct, and area clear. Type FLY to start: " confirm
+read -r -p "Confirm battery >= 3.6 V, props correct, and area clear. Type FLY to start: " confirm
 if [ "$confirm" != "FLY" ]; then
   echo "Flight cancelled."
   exit 1
@@ -191,7 +157,7 @@ battery voltage, and disconnects.
 
 ```
 Link open: True
-Battery: 3.97 V  (fly only if >= 3.9 V)
+Battery: 3.97 V  (fly only if >= 3.6 V)
 Disconnected cleanly.
 ```
 
@@ -292,7 +258,7 @@ correct.
 
 **Safety checklist first:**
 
-- Battery ≥ 3.9 V (step 1 tells you)
+- Battery ≥ 3.6 V (step 1 tells you)
 - At least 2 m of clear space in every direction, no people or pets
 - Fly **on battery** — unplug any USB cable (a tether yanks the drone down)
 - Keep your fingers near `Ctrl+C` and know where the drone's power switch is
