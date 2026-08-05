@@ -115,6 +115,68 @@ lsusb | grep -E '1915:7777|0483:5740'
 # 如果看到 0483:5740，说明 Crazyflie 的 MicroUSB 线还接着。
 ```
 
+**可直接复制的无相机实飞端到端脚本**
+
+管理员 PowerShell 中完成 `usbipd attach`、螺旋桨已经检查、Crazyflie
+本体使用电池供电且 MicroUSB 线已拔掉后，在 WSL 中运行下面脚本。它会
+检查 Crazyradio、拒绝在 Crazyflie MicroUSB 仍连接时起飞、打印电池电压，
+然后等待你输入 `FLY` 做最后确认，再运行 `04_flying.py`。
+
+```bash
+set -euo pipefail
+
+cd ~/drone-navigation/extension/simple_crazyflie
+
+if pgrep -af '04_flying.py|03_propellers.py|01_connect.py|motion_control_ws|crazyflie_bridge|simple_crazyflie' >/dev/null; then
+  echo "已有 Crazyflie 脚本或 bridge 进程在运行；请先停止它。"
+  exit 1
+fi
+
+usb_devices="$(lsusb)"
+if ! grep -q '1915:7777' <<< "$usb_devices"; then
+  echo "WSL 中看不到 Crazyradio PA (1915:7777)。"
+  echo "请先在 Windows PowerShell（管理员）中执行 usbipd attach，然后重试。"
+  exit 1
+fi
+
+if grep -q '0483:5740' <<< "$usb_devices"; then
+  echo "Crazyflie MicroUSB (0483:5740) 仍然连接着。"
+  echo "实飞前请拔掉无人机本体的 MicroUSB 线。"
+  exit 1
+fi
+
+run_crazyflie_v6 () {
+  conda run --no-capture-output -n drone-navigation python -u - "$1" <<'PY'
+import runpy
+import sys
+
+import cflib.crtp
+from cflib.crazyflie import Crazyflie
+
+script = sys.argv[1]
+
+def _crtp_v6_setup(self):
+    self.platform._protocolVersion = 6
+    self.log.refresh_toc(self._log_toc_updated_cb, self._toc_cache)
+
+Crazyflie._start_connection_setup = _crtp_v6_setup
+cflib.crtp.init_drivers()
+runpy.run_path(script, run_name="__main__")
+PY
+}
+
+run_crazyflie_v6 01_connect.py
+
+echo
+read -r -p "确认电池 >= 3.9 V、螺旋桨正确、场地空旷。输入 FLY 开始： " confirm
+if [ "$confirm" != "FLY" ]; then
+  echo "已取消飞行。"
+  exit 1
+fi
+
+run_crazyflie_v6 04_flying.py
+```
+
 ---
 
 ## 1. 连接 —— `python 01_connect.py`

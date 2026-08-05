@@ -117,6 +117,69 @@ lsusb | grep -E '1915:7777|0483:5740'
 # If 0483:5740 is present, the Crazyflie MicroUSB cable is still attached.
 ```
 
+**Copy-paste no-camera real-flight script**
+
+Use this WSL script after the administrator PowerShell `usbipd attach` step is
+done, the propellers have been checked, the Crazyflie is on battery power, and
+the MicroUSB cable is unplugged. It checks for the Crazyradio, refuses to run if
+the Crazyflie USB cable is still attached, prints the battery voltage, then
+waits for a final `FLY` confirmation before running `04_flying.py`.
+
+```bash
+set -euo pipefail
+
+cd ~/drone-navigation/extension/simple_crazyflie
+
+if pgrep -af '04_flying.py|03_propellers.py|01_connect.py|motion_control_ws|crazyflie_bridge|simple_crazyflie' >/dev/null; then
+  echo "A Crazyflie script or bridge process is already running; stop it first."
+  exit 1
+fi
+
+usb_devices="$(lsusb)"
+if ! grep -q '1915:7777' <<< "$usb_devices"; then
+  echo "Crazyradio PA (1915:7777) is not visible in WSL."
+  echo "Run usbipd attach from Windows PowerShell (Administrator), then retry."
+  exit 1
+fi
+
+if grep -q '0483:5740' <<< "$usb_devices"; then
+  echo "Crazyflie MicroUSB (0483:5740) is still attached."
+  echo "Unplug the drone MicroUSB cable before real flight."
+  exit 1
+fi
+
+run_crazyflie_v6 () {
+  conda run --no-capture-output -n drone-navigation python -u - "$1" <<'PY'
+import runpy
+import sys
+
+import cflib.crtp
+from cflib.crazyflie import Crazyflie
+
+script = sys.argv[1]
+
+def _crtp_v6_setup(self):
+    self.platform._protocolVersion = 6
+    self.log.refresh_toc(self._log_toc_updated_cb, self._toc_cache)
+
+Crazyflie._start_connection_setup = _crtp_v6_setup
+cflib.crtp.init_drivers()
+runpy.run_path(script, run_name="__main__")
+PY
+}
+
+run_crazyflie_v6 01_connect.py
+
+echo
+read -r -p "Confirm battery >= 3.9 V, props correct, and area clear. Type FLY to start: " confirm
+if [ "$confirm" != "FLY" ]; then
+  echo "Flight cancelled."
+  exit 1
+fi
+
+run_crazyflie_v6 04_flying.py
+```
+
 ---
 
 ## 1. Connect — `python 01_connect.py`
