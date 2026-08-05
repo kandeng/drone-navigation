@@ -8,7 +8,7 @@
     "providers": {
       "bailian-token-plan": {
         "baseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic",
-        "apiKey": "sk-sp-H.EEDDR.0uKV.MEUCIQDfLFwLoGT3OCSsDaUoQICfs5-mrRlXJSL_jP9GZsf2ggIgbbm-n9x8eruL3xUpGNIJ_3vvgk0vvDihUWDXHx7kOE4",
+        "apiKey": "sk-sp-xxxx",
         "api": "anthropic-messages",
         "models": [
           {
